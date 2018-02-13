@@ -1,0 +1,6 @@
+{
+   'led_name':'red',
+   'current':0.012,
+   'exp_time':0.06,
+   'path':'/gpfs/slac/lsst/fs1/g/data/R_and_D/RTM-005/171214/ccobxy'
+}
