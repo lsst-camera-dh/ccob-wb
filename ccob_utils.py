@@ -46,6 +46,13 @@ def build_mean_bias_frame(config, slot):
     mean_bias_file = slot+'_mean_bias_image.fits'
     imutils.fits_mean_file(bias_frames, os.path.join(config['tmp_dir'],mean_bias_file))
     
+def define_ccd_pos(ccd_pos_dict, raft_name, slot_names, xpos, ypos):
+    """
+    Updates a given dictionary of raft/slots center positions with that of a new raft.
+    Inputs: raft_name (str), slot_names (list of str), xpos, ypos (lists of floats)           
+    """
+    ccd_pos_dict[raft_name] = {slot:[xpos[i],ypos[i]] for i,slot in enumerate(slot_names)}    
+    
 def make_image(config, slot_names, mean_frame_pattern='_mean_bias_image.fits'):
     """
     Make the mosaic image of the entire raft, when illuminated by the CCOB 
