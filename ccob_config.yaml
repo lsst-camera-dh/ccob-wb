@@ -1,10 +1,11 @@
 {
+#   'slot':'10',
    'led_name':'red',
    'current':'0.012A',
    'exp_time':'0.06s',
    'path':'/gpfs/slac/lsst/fs1/g/data/R_and_D/RTM-005/171214/ccobxy',
    'xpos':'300',
    'ypos':'192',
-   'tmp_dir':'/home/combet/tmp/',
+   'tmp_dir':'/home/combet/tmp_new/',
    'eo_data_path':'/gpfs/slac/lsst/fs1/g/data/jobHarness/jh_archive/LCA-11021_RTM/LCA-11021_RTM-005/6288/collect_raft_results/v0/37124'
 }
