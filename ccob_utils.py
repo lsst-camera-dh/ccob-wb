@@ -13,6 +13,7 @@ def gains(eotest_results_file):
     results = sensorTest.EOTestResults(eotest_results_file)
     return {amp: gain for amp, gain in zip(results['AMP'], results['GAIN'])}
 
+
 def load_ccob_config(config_file):
     """
     Loads ccob configuration (led, current, exp_time and position)
