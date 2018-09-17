@@ -30,14 +30,14 @@ def load_ccob_config(config_file):
     
     return config
 
-def find_files(config):
+def find_files(config, slot='*'):
     """
     Find all the files matching a given ccob configuration
     """
-    f_pattern = os.path.join(config['path'], config['slot'] + '_CCOB_' + config['led_name'] + '_'
-                             + config['current'] + '_' + config['exp_time'] + '_X'
-                             + config['xpos'] + '_Y' + config['ypos'] + '*')
-    print f_pattern
+    f_pattern = os.path.join(config['path'], slot+'*' + config['led_name'] + '*'
+                             + config['current'] + '*' + config['exp_time'] + '*'
+                             + config['xpos'] + '*' + config['ypos'] + '*')
+    print(f_pattern)
     return glob.glob(f_pattern)
 
 def build_mean_bias_frame(config, slot, mean_frame_pattern='_mean_bias_image.fits'):
