@@ -3,8 +3,10 @@ import glob
 import lsst.eotest.image_utils as imutils
 import lsst.eotest.sensor as sensorTest
 import lsst.eotest.raft as raft
+from lsst.eotest.sensor.AmplifierGeometry import parse_geom_kwd
 import numpy as np
 import yaml
+import astropy.io.fits as fits
 
 def gains(eotest_results_file):
     """
@@ -103,3 +105,115 @@ def make_image(config, slot_names, mean_frame_pattern='_mean_bias_image.fits'):
     im_raw = raft.RaftMosaic(fits_files_dict, bias_subtract=False)
     
     return im_raw, im_corr, im_corr_wbias
+
+def fill_seg_dict(ccd):
+    seg_dict_slot = {}
+    for amp in ccd.keys():
+        datasec = [ccd.amp_geom[amp]['DATASEC'].strip('[]').split(',')[0].split(':')[0],
+                   ccd.amp_geom[amp]['DATASEC'].strip('[]').split(',')[0].split(':')[1],
+                   ccd.amp_geom[amp]['DATASEC'].strip('[]').split(',')[1].split(':')[0],
+                   ccd.amp_geom[amp]['DATASEC'].strip('[]').split(',')[1].split(':')[1]]
+        detsec = [ccd.amp_geom[amp]['DETSEC'].strip('[]').split(',')[0].split(':')[0],
+                  ccd.amp_geom[amp]['DETSEC'].strip('[]').split(',')[0].split(':')[1],
+                  ccd.amp_geom[amp]['DETSEC'].strip('[]').split(',')[1].split(':')[0],
+                  ccd.amp_geom[amp]['DETSEC'].strip('[]').split(',')[1].split(':')[1]]
+        detsize = [ccd.amp_geom[amp]['DETSIZE'].strip('[]').split(',')[0].split(':')[0],                      
+                   ccd.amp_geom[amp]['DETSIZE'].strip('[]').split(',')[0].split(':')[1],
+                   ccd.amp_geom[amp]['DETSIZE'].strip('[]').split(',')[1].split(':')[0],
+                   ccd.amp_geom[amp]['DETSIZE'].strip('[]').split(',')[1].split(':')[1]]
+     
+        seg_dict_slot[amp] = {'datasec':list(map(int,datasec)),
+                         'detsec':list(map(int,detsec)),
+                         'detsize':list(map(int,detsize))
+                        }
+    return seg_dict_slot
+
+def make_ccd_image(seg_dict, ccd_dict, slot):
+    img_tot = np.empty(shape=(seg_dict[slot][1]['detsize'][3],seg_dict[slot][1]['detsize'][1]))
+    for seg in seg_dict[slot].keys():
+        xmin = seg_dict[slot][seg]['datasec'][0]
+        xmax = seg_dict[slot][seg]['datasec'][1]
+        ymin = seg_dict[slot][seg]['datasec'][2]
+        ymax = seg_dict[slot][seg]['datasec'][3]
+        xmin_detset = seg_dict[slot][seg]['detsec'][0]
+        xmax_detset = seg_dict[slot][seg]['detsec'][1]
+        ymin_detset = seg_dict[slot][seg]['detsec'][2]
+        ymax_detset = seg_dict[slot][seg]['detsec'][3]
+    
+        if (xmin_detset < xmax_detset) & (ymin_detset < ymax_detset):
+                img_tot[ymin_detset-1:ymax_detset-1,xmin_detset-1:xmax_detset-1] = \
+                  ccd_dict[slot][seg].getArrays()[0][ymin-1:ymax-1,xmin-1:xmax-1]
+
+        if (xmin_detset < xmax_detset) & (ymin_detset > ymax_detset):
+                img_tot[ymax_detset-1:ymin_detset-1,xmin_detset-1:xmax_detset-1] =\
+                  ccd_dict[slot][seg].getArrays()[0][ymin-1:ymax-1,xmin-1:xmax-1][::-1,:]
+
+        if (xmin_detset > xmax_detset) & (ymin_detset < ymax_detset):
+                img_tot[ymin_detset-1:ymax_detset-1,xmax_detset-1:xmin_detset-1] =\
+                  ccd_dict[slot][seg].getArrays()[0][ymin-1:ymax-1,xmin-1:xmax-1][:,::-1]
+
+        if (xmin_detset > xmax_detset) & (ymin_detset > ymax_detset):
+                img_tot[ymax_detset-1:ymin_detset-1,xmax_detset-1:xmin_detset-1] =\
+                  ccd_dict[slot][seg].getArrays()[0][ymin-1:ymax-1,xmin-1:xmax-1][::-1,::-1]
+
+    return img_tot
+
+def make_ccd_2d_array(infile, gains=None):
+    ccd = sensorTest.MaskedCCD(infile)
+    foo = fits.open(infile)
+    datasec = parse_geom_kwd(foo[1].header['DATASEC'])
+    # Specialize to science sensor or wavefront sensor geometries.
+    nx_segments = 8
+    ny_segments = len(ccd)//nx_segments
+    nx = nx_segments*(datasec['xmax'] - datasec['xmin'] + 1)
+    ny = ny_segments*(datasec['ymax'] - datasec['ymin'] + 1)
+    mosaic = np.zeros((ny, nx), dtype=np.float)
+    amp_coords = {}
+    for ypos in range(ny_segments):
+        for xpos in range(nx_segments):
+            amp = ypos*nx_segments + xpos + 1
+            #
+            # Determine subarray boundaries in the mosaicked image array
+            # from DETSEC keywords for each segment.
+            detsec = parse_geom_kwd(foo[amp].header['DETSEC'])
+            xmin = nx - max(detsec['xmin'], detsec['xmax'])
+            xmax = nx - min(detsec['xmin'], detsec['xmax']) + 1
+            ymin = ny - max(detsec['ymin'], detsec['ymax'])
+            ymax = ny - min(detsec['ymin'], detsec['ymax']) + 1
+            #
+            #
+            # Extract the bias-subtracted masked image for this segment.
+            segment_image = ccd.unbiased_and_trimmed_image(amp)
+            subarr = segment_image.getImage().getArray()
+            #
+            # Determine flips in x- and y-directions in order to
+            # get the (1, 1) pixel in the lower right corner.
+            flipx = False
+            flipy = False
+            if detsec['xmax'] > detsec['xmin']:  # flip in x-direction
+                subarr = subarr[:, ::-1]
+                flipx = True
+            if detsec['ymax'] > detsec['ymin']:  # flip in y-direction
+                subarr = subarr[::-1, :]
+                flipy = True
+            #
+            # Convert from ADU to e-
+            if gains is not None:
+                subarr *= gains[amp]
+            #
+            # Save coordinates of segment for later use
+            amp_coords[(xpos, ypos)] = amp, xmin, xmax, ymin, ymax, flipx, flipy
+            # Set the subarray in the mosaicked image.
+            mosaic[ymin:ymax, xmin:xmax] = subarr
+    return mosaic, amp_coords
+
+def pix_coord_in_mosaic(amp_coord, amp, posx_in_amp, posy_in_amp):
+    subdict = {k:v for k, v in amp_coord.items() if v[0] == amp}
+    v = subdict[list(subdict.keys())[0]]
+    idx_x = v[1] + posx_in_amp
+    idx_y = v[3] + posy_in_amp
+    if v[5] == True: # flip-x
+        idx_x = v[2] - posx_in_amp
+    if v[6] == True: # flip-y
+        idx_y = v[4] - posy_in_amp
+    return idx_x, idx_y
