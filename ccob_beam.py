@@ -15,8 +15,8 @@ import pickle
 
 class CcobBeam:
     
-    def __init__(self, config_file):
-        self.config = u.load_ccob_config(config_file)
+    def __init__(self, config):
+        self.config = config
         self.properties = {}
         self.beam_image={}
 
