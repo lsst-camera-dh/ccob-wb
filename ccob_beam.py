@@ -1,14 +1,8 @@
 import os
-import glob
-import lsst.eotest.image_utils as imutils
 import lsst.eotest.sensor as sensorTest
-import lsst.eotest.raft as raft
 import matplotlib.pyplot as plt
 import numpy as np
-import yaml
-import sys
 from scipy import interpolate
-from astropy.table import Table
 from numpy import unravel_index
 import ccob_utils as u
 import pickle 
@@ -32,7 +26,6 @@ class CcobBeam:
         
         recons = {}
         led = self.config['led_name']
-#        self.config['path'] = os.path.join(self.config['path'],led)
         print(led)
 
         flist = sorted(u.find_files(self.config, slot=ref_slot))

@@ -1,12 +1,7 @@
 import os
-import glob
 import lsst.eotest.image_utils as imutils
 import lsst.eotest.sensor as sensorTest
-import lsst.eotest.raft as raft
-import matplotlib.pyplot as plt
 import numpy as np
-import yaml
-import sys
 import ccob_utils as u
 import ccob_beam as b
 import pickle
