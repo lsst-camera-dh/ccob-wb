@@ -32,7 +32,7 @@ class CcobBeam:
         
         recons = {}
         led = self.config['led_name']
-        self.config['path'] = os.path.join(self.config['path'],led)
+#        self.config['path'] = os.path.join(self.config['path'],led)
         print(led)
 
         flist = sorted(u.find_files(self.config, slot=ref_slot))
@@ -40,6 +40,7 @@ class CcobBeam:
         nodes['xarr'] = []
         nodes['yarr'] = []
         nodes['val'] = []
+
         for i,f in enumerate(sorted(flist)):
             nodes['xarr'].append(float(os.path.basename(f).split('_')[3].split('x')[1]))
             nodes['yarr'].append(float(os.path.basename(f).split('_')[4].split('y')[1]))

@@ -36,7 +36,7 @@ def find_files(config, slot='*'):
     """
     Find all the files matching a given ccob configuration
     """
-    f_pattern = os.path.join(config['path'], slot+'*' + config['led_name'] + '*'
+    f_pattern = os.path.join(os.path.join(config['path'],config['led_name']), slot+'*' + config['led_name'] + '*'
                              + config['current'] + '*' + config['exp_time'] + '*'
                              + config['xpos'] + '*' + config['ypos'] + '*')
     print(f_pattern)
