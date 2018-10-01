@@ -5,6 +5,8 @@ import numpy as np
 import ccob_utils as u
 import ccob_beam as b
 import pickle
+import matplotlib.pyplot as plt
+import pdb 
 
 class CcobQE: 
     
@@ -111,10 +113,58 @@ class CcobQE:
         # Raw QE (flat) is simply the ccd-to-beam ratio
         self.QE = self.ccd['mosaic']/self.beam_image
         return self.QE
+    
+    def plot_QE(self):
+        plt.imshow(self.QE.QE, vmin=0.695, vmax=0.715, cmap='hot')
+        plt.colorbar()
+        plt.show()
 
+    def make_fits(self, outfile, template_file):
+        """
+        TODO: Save the mosaicked QE image into a fits file, using the default format 
+        """
+        amp_dict = {}
+        
+        for i,amp_pos in enumerate(self.ccd['amp_coord']):
+          
+            amp = self.ccd['amp_coord'][amp_pos]['amp']
+            xmin = self.ccd['amp_coord'][amp_pos]['xmin']
+            xmax = self.ccd['amp_coord'][amp_pos]['xmax']
+            ymin = self.ccd['amp_coord'][amp_pos]['ymin']
+            ymax = self.ccd['amp_coord'][amp_pos]['ymax']
+            flipx = self.ccd['amp_coord'][amp_pos]['flipx']
+            flipy = self.ccd['amp_coord'][amp_pos]['flipy']
+            detsec = self.ccd['amp_coord'][amp_pos]['detsec']
+            datasec = self.ccd['amp_coord'][amp_pos]['datasec']
+            
+            foo = self.QE[ymin:ymax,xmin:xmax]
+            
+            if flipx:
+                amp_dict[amp] = foo[:,::-1]
+            elif flipy:
+                amp_dict[amp] = foo[::-1,:]
+            else:
+                amp_dict[amp] = foo
 
-    def make_fits(self, outfile):
-        """
-        Save the mosaicked QE image into a fits file, using the default format 
-        """
-        return 0
+        ccd_dict = sensorTest.MaskedCCD(template_file)
+        shape = ccd_dict[1].getImage().getArray().shape        
+        
+        amp_dict_w_overscan = {}
+        for amp in amp_dict:
+            arr = np.zeros(shape)
+            arr[datasec['ymin']-1:datasec['ymax'],datasec['xmin']-1:datasec['xmax']] = amp_dict[amp]
+            amp_dict_w_overscan[amp] = arr
+        
+        u.writeFits_from_dict(amp_dict_w_overscan, outfile, template_file, bitpix=-32)
+    
+if __name__ == '__main__':
+        
+    config_file_beam = 'ccob_beam_recons_config.yaml'
+    config_file_data = 'ccob_config_RTM-006.yaml'
+    QE = qe.CcobQE(config_file_beam, config_file_data)
+    beam = QE.make_ccob_beam()
+    ccd = QE.load_ccd()
+    QE.compute_QE()
+    template_file = '/gpfs/slac/lsst/fs1/g/data/jobHarness/jh_archive-test/LCA-11021_RTM/LCA-11021_RTM-006-Dev/5867D/qe_raft_acq/v0/38892/S11/E2V-CCD250-131-Dev_lambda_flat_0620_5867D_20180417041731.fits'
+    QE.make_fits('test.fits', template_file)
+#    QE.plot_QE()

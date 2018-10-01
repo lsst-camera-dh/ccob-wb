@@ -1,12 +1,16 @@
 import os
 import glob
+import warnings
 import lsst.eotest.image_utils as imutils
+import lsst.eotest.fitsTools as fitsTools
 import lsst.eotest.sensor as sensorTest
 import lsst.eotest.raft as raft
 from lsst.eotest.sensor.AmplifierGeometry import parse_geom_kwd
 import numpy as np
 import yaml
 import astropy.io.fits as fits
+from astropy.utils.exceptions import AstropyWarning, AstropyUserWarning
+import pdb
 
 def gains(eotest_results_file):
     """
@@ -159,6 +163,11 @@ def make_ccd_image(seg_dict, ccd_dict, slot):
     return img_tot
 
 def make_ccd_2d_array(infile, gains=None):
+    '''
+    Generate a 2d array of a sensor image (trimmed, bias subtracted) from 
+    an input fits file and a gain dictionary. 
+    Function adapted from sensorTest.plot_flat()
+    '''
     ccd = sensorTest.MaskedCCD(infile)
     foo = fits.open(infile)
     datasec = parse_geom_kwd(foo[1].header['DATASEC'])
@@ -176,6 +185,7 @@ def make_ccd_2d_array(infile, gains=None):
             # Determine subarray boundaries in the mosaicked image array
             # from DETSEC keywords for each segment.
             detsec = parse_geom_kwd(foo[amp].header['DETSEC'])
+            datasec = parse_geom_kwd(foo[amp].header['DATASEC'])
             xmin = nx - max(detsec['xmin'], detsec['xmax'])
             xmax = nx - min(detsec['xmin'], detsec['xmax']) + 1
             ymin = ny - max(detsec['ymin'], detsec['ymax'])
@@ -202,18 +212,66 @@ def make_ccd_2d_array(infile, gains=None):
                 subarr *= gains[amp]
             #
             # Save coordinates of segment for later use
-            amp_coords[(xpos, ypos)] = amp, xmin, xmax, ymin, ymax, flipx, flipy
-            # Set the subarray in the mosaicked image.
+            amp_coords[(xpos, ypos)] = {'amp':amp,
+                                        'segment':foo[amp].header['EXTNAME'], 
+                                        'xmin':xmin, 
+                                        'xmax':xmax, 
+                                        'ymin':ymin, 
+                                        'ymax':ymax, 
+                                        'flipx':flipx, 
+                                        'flipy':flipy,
+                                        'detsec':detsec,
+                                        'datasec':datasec}
+            # Set the subarray in the mosaic.
             mosaic[ymin:ymax, xmin:xmax] = subarr
     return mosaic, amp_coords
 
 def pix_coord_in_mosaic(amp_coord, amp, posx_in_amp, posy_in_amp):
-    subdict = {k:v for k, v in amp_coord.items() if v[0] == amp}
+    '''
+    Given a pixel position in a given segment of a given sensor 
+    and a amp_coords dictionary (obtained from make_ccd_2d_array)
+    returns the pixel location in the full mosaicked image of the sensor.
+    '''
+    subdict = {k:v for k, v in amp_coord.items() if v['amp'] == amp}    
     v = subdict[list(subdict.keys())[0]]
-    idx_x = v[1] + posx_in_amp
-    idx_y = v[3] + posy_in_amp
-    if v[5] == True: # flip-x
-        idx_x = v[2] - posx_in_amp
-    if v[6] == True: # flip-y
-        idx_y = v[4] - posy_in_amp
+    idx_x = v['xmin'] + posx_in_amp
+    idx_y = v['ymin'] + posy_in_amp
+    if v['flipx'] == True: # flip-x
+        idx_x = v['xmax'] - posx_in_amp
+    if v['flipy'] == True: # flip-y
+        idx_y = v['ymax'] - posy_in_amp
     return idx_x, idx_y
+
+
+def writeFits_from_dict(amp_dict, outfile, template_file, bitpix=32):
+    '''
+    Same as eotest imutils writeFits but takes a dictionary of amplifier as input
+    rather than a list of afwImage images
+    '''
+    output = fits.HDUList()
+    output.append(fits.PrimaryHDU())
+    all_amps = imutils.allAmps()
+    for amp in all_amps:
+        if bitpix < 0:
+            output.append(fits.ImageHDU(data=amp_dict[amp]))
+        else:
+            output.append(fits.CompImageHDU(data=amp_dict[amp],
+                                            compression_type='RICE_1'))
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', category=UserWarning, append=True)
+        warnings.filterwarnings('ignore', category=AstropyWarning, append=True)
+        warnings.filterwarnings('ignore', category=AstropyUserWarning,
+                                append=True)
+
+    with fits.open(template_file) as template:
+        output[0].header.update(template[0].header)
+        output[0].header['FILENAME'] = outfile
+        for amp in all_amps:
+            output[amp].header.update(template[amp].header)
+            imutils.set_bitpix(output[amp], bitpix)
+            print(np.median(output[amp].data.ravel()))
+        for i in (-3, -2, -1):
+            output.append(template[i])
+        imutils.fitsWriteto(output, outfile, overwrite=True, checksum=True)
+
+
