@@ -19,20 +19,26 @@ class CcobQE:
         """
         Make a CCOB beam object for a scan
         """
-        config = u.load_ccob_config(self.config_file_beam)
-        self.led = led_name
-        config['led_name'] = self.led
-        self.beam = b.CcobBeam(config)
-        self.beam.recons(ref_slot=ref_slot, ref_amp=ref_amp, ref_pix_x=ref_pix_x,ref_pix_y=ref_pix_y)
-        self.beam.make_image()
-        self.beam.find_max()
         
-        filename = self.beam.config['led_name']+'_beam_slot'+self.beam.properties['ref_slot']+\
-        '_amp'+str(self.beam.properties['ref_amp'])+'_refx'+str(self.beam.properties['ref_pix_x'])+\
-        '_refy'+str(self.beam.properties['ref_pix_y'])+'.pkl'
-        print('Printing to ',filename)
-        self.beam.save(os.path.join(beam.config['tmp_dir'],filename))
-        return self.beam
+        filename = led_name+'_beam_slot'+ref_slot+'_amp'+str(ref_amp)+'_refx'+str(ref_pix_x)+\
+        '_refy'+str(ref_pix_y)+'.pkl'
+                
+        config = u.load_ccob_config(self.config_file_beam)
+
+        if os.path.exists(os.path.join(config['tmp_dir'],filename)):
+            print("CCOB beam object file already exists, loading it instead of recomputing")
+            self.load_ccob_beam(os.path.join(config['tmp_dir'],filename))
+        else:
+            print("Computing the CCOB beam")
+            self.led = led_name
+            config['led_name'] = self.led
+            self.beam = b.CcobBeam(config)
+            self.beam.recons(ref_slot=ref_slot, ref_amp=ref_amp, ref_pix_x=ref_pix_x,ref_pix_y=ref_pix_y)
+            self.beam.make_image()
+            self.beam.find_max()
+            print('Printing to ',filename)
+            self.beam.save(os.path.join(self.beam.config['tmp_dir'],filename))
+            #return self.beam
 
     def load_ccob_beam(self, infile):
         """
@@ -42,7 +48,7 @@ class CcobQE:
         self.beam = pickle.load(open(infile,'rb'))
     
 
-    def load_ccd(self):
+    def load_ccd(self, led_name='red'):
         """
         Load and generate mosaic image from a given sensor illuminated 
         by the CCOB
@@ -50,8 +56,9 @@ class CcobQE:
 
         #config_file_data = '../ccob_config_RTM-006.yaml'
         config_data = u.load_ccob_config(self.config_file_data)
-        config_beam = u.load_ccob_config(self.config_file_beam)
+#        config_beam = u.load_ccob_config(self.config_file_beam)
 
+        config_data['led_name'] = led_name
         slot = self.beam.properties['ref_slot']
         file_list=sorted(u.find_files(config_data, slot=slot))
 
@@ -157,14 +164,3 @@ class CcobQE:
         
         u.writeFits_from_dict(amp_dict_w_overscan, outfile, template_file, bitpix=-32)
     
-if __name__ == '__main__':
-        
-    config_file_beam = 'ccob_beam_recons_config.yaml'
-    config_file_data = 'ccob_config_RTM-006.yaml'
-    QE = qe.CcobQE(config_file_beam, config_file_data)
-    beam = QE.make_ccob_beam()
-    ccd = QE.load_ccd()
-    QE.compute_QE()
-    template_file = '/gpfs/slac/lsst/fs1/g/data/jobHarness/jh_archive-test/LCA-11021_RTM/LCA-11021_RTM-006-Dev/5867D/qe_raft_acq/v0/38892/S11/E2V-CCD250-131-Dev_lambda_flat_0620_5867D_20180417041731.fits'
-    QE.make_fits('test.fits', template_file)
-#    QE.plot_QE()
