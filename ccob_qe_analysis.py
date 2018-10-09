@@ -9,7 +9,23 @@ import matplotlib.pyplot as plt
 import pdb 
 
 class CcobQE: 
+    """
+    A class to compute and save the relative QE measurements perfomed using CCOB data
     
+    Attributes
+    ----------
+        config_file_beam: string
+            Path to the file containing information necessary to the CCOB beam reconstruction
+        config_file_data: string
+            Path to the file containing information to read in the sensor data used to compute the CCOB QE
+        beam: CcobBeam object
+            Contains all the properties of the CCOB beam reconstructed from the config_file_beam configuration file
+        ccd: 2D array
+            Mosaic image of the CCOB-illuminated sensor to be used in the QE calculation
+        QE: 2D array
+            Mosaic image of the QE obtained from ccd/beam
+    
+    """
     def __init__(self, config_file_beam, config_file_data):
         self.config_file_beam = config_file_beam
         self.config_file_data = config_file_data
@@ -17,7 +33,22 @@ class CcobQE:
 
     def make_ccob_beam(self, led_name='red', ref_amp=13, ref_slot='11', ref_pix_x=1000,ref_pix_y=256):
         """
-        Make a CCOB beam object for a scan
+        Make a CCOB beam object from a scan using a bunch of pixels located around (ref_pix_x, ref_pix,y), in 
+        amplifier ref_amp of the sensor ref_slot
+        
+        Parameters
+        ----------
+            led_name: string
+                Choice of CCOB LED
+            ref_amp: int
+                Amplifier where the bunch of pixels is located
+            ref_slot: string
+                Sensor where the bunch of pixels is located
+            ref_pix_x: int
+                x position in pixel coordinates where the bunch of pixels is located
+            ref_pix_y:
+                y position in pixel coordinates where the bunch of pixels is located
+            
         """
         
         filename = led_name+'_beam_slot'+ref_slot+'_amp'+str(ref_amp)+'_refx'+str(ref_pix_x)+\
@@ -51,7 +82,11 @@ class CcobQE:
     def load_ccd(self, led_name='red'):
         """
         Load and generate mosaic image from a given sensor illuminated 
-        by the CCOB
+        by the CCOB. The path to the data is provided in the self.config_file_data file.
+        
+        Parameters
+        ----------
+            led_name: choice of the CCOB LED. Either one of ['nm960','nm850','nm750,'red','blue,'uv'] 
         """
 
         #config_file_data = '../ccob_config_RTM-006.yaml'
@@ -85,6 +120,13 @@ class CcobQE:
         return self.ccd
 
     def compute_QE(self):
+        """
+        Computes the mosaicked QE image from the reconstructed beam image (self.beam) and the 
+        CCOB-illuminated sensor image (self.ccd).
+        
+        First, the beam model image is matched to the data, given the position of the CCOB when the data
+        were taken. Then the ratio data/beam produced the CCOB flat field from which the relative QE may be measured.
+        """
 
         # First need to match a beam image to the ccd data, given the position of the CCOB
         ref_pix = u.pix_coord_in_mosaic(self.ccd['amp_coord'], self.beam.properties['ref_amp'], \
@@ -128,7 +170,15 @@ class CcobQE:
 
     def make_fits(self, outfile, template_file):
         """
-        TODO: Save the mosaicked QE image into a fits file, using the default format 
+        Saves the mosaicked QE image into a fits file, using the default format 
+        
+        Parameters
+        ----------
+            outfile: string
+                Name of the output fits file into which the data will be saved
+            template_file: string
+                Name of the file to be used as template in the writeFits function
+    
         """
         amp_dict = {}
         
