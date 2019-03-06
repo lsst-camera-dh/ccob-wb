@@ -27,9 +27,10 @@ class CcobQE:
     
     """
     def __init__(self, config_file_beam, config_file_data):
-        self.config_file_beam = config_file_beam
-        self.config_file_data = config_file_data
- 
+#        self.config_file_beam = config_file_beam
+#        self.config_file_data = config_file_data
+        self.config_beam = u.load_ccob_config(config_file_beam)
+        self.config_data = u.load_ccob_config(config_file_data)
 
     def make_ccob_beam(self, led_name='red', ref_amp=13, ref_slot='11', ref_pix_x=1000,ref_pix_y=256):
         """
@@ -54,16 +55,16 @@ class CcobQE:
         filename = led_name+'_beam_slot'+ref_slot+'_amp'+str(ref_amp)+'_refx'+str(ref_pix_x)+\
         '_refy'+str(ref_pix_y)+'.pkl'
                 
-        config = u.load_ccob_config(self.config_file_beam)
+#        config = u.load_ccob_config(self.config_file_beam)
 
-        if os.path.exists(os.path.join(config['tmp_dir'],filename)):
+        if os.path.exists(os.path.join(self.config_beam['tmp_dir'],filename)):
             print("CCOB beam object file already exists, loading it instead of recomputing")
-            self.load_ccob_beam(os.path.join(config['tmp_dir'],filename))
+            self.load_ccob_beam(os.path.join(self.config_beam['tmp_dir'],filename))
         else:
             print("Computing the CCOB beam")
             self.led = led_name
-            config['led_name'] = self.led
-            self.beam = b.CcobBeam(config)
+            self.config_beam['led_name'] = self.led
+            self.beam = b.CcobBeam(self.config_beam)
             self.beam.recons(ref_slot=ref_slot, ref_amp=ref_amp, ref_pix_x=ref_pix_x,ref_pix_y=ref_pix_y)
             self.beam.make_image()
             self.beam.find_max()
@@ -90,32 +91,32 @@ class CcobQE:
         """
 
         #config_file_data = '../ccob_config_RTM-006.yaml'
-        config_data = u.load_ccob_config(self.config_file_data)
+#        config_data = u.load_ccob_config(self.config_file_data)
 #        config_beam = u.load_ccob_config(self.config_file_beam)
 
-        config_data['led_name'] = led_name
+        self.config_data['led_name'] = led_name
         slot = self.beam.properties['ref_slot']
-        file_list=sorted(u.find_files(config_data, slot=slot))
+        file_list=sorted(u.find_files(self.config_data, slot=slot))
 
         mean_slot_file = slot+'_mean_ccob_image.fits'
-        imutils.fits_mean_file(file_list, os.path.join(config_data['tmp_dir'],mean_slot_file))
+        imutils.fits_mean_file(file_list, os.path.join(self.config_data['tmp_dir'],mean_slot_file))
 
-        fits_file = os.path.join(config_data['tmp_dir'],mean_slot_file)
+        fits_file = os.path.join(self.config_data['tmp_dir'],mean_slot_file)
         gains_dict={}
         ccd_dict={}
 
         #bias_frames = glob.glob(os.path.join(config['path'], slot+'_bias*'))
         mean_bias_file = slot+'_mean_bias_image_RTM-006_new.fits'
         #imutils.fits_mean_file(bias_frames, os.path.join(config['tmp_dir'],mean_bias_file))
-        ccd_dict = sensorTest.MaskedCCD(fits_file, bias_frame=os.path.join(config_data['tmp_dir'],mean_bias_file))
-        eotest_results_file = os.path.join(config_data['eo_data_path'],\
+        ccd_dict = sensorTest.MaskedCCD(fits_file, bias_frame=os.path.join(self.config_data['tmp_dir'],mean_bias_file))
+        eotest_results_file = os.path.join(self.config_data['eo_data_path'],\
                                            '{}_eotest_results.fits'.format(ccd_dict.md('LSST_NUM')))
 
         gains_dict = u.gains(eotest_results_file)
         self.ccd = {}
         self.ccd['mosaic'], self.ccd['amp_coord'] = u.make_ccd_2d_array(fits_file, gains=gains_dict)
-        self.ccd['xpos_ccob'] = config_data['xpos']
-        self.ccd['ypos_ccob'] = config_data['ypos']
+        self.ccd['xpos_ccob'] = self.config_data['xpos']
+        self.ccd['ypos_ccob'] = self.config_data['ypos']
         
         return self.ccd
 
