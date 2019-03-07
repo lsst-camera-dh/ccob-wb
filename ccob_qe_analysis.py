@@ -106,9 +106,13 @@ class CcobQE:
         ccd_dict={}
 
         #bias_frames = glob.glob(os.path.join(config['path'], slot+'_bias*'))
-        mean_bias_file = slot+'_mean_bias_image_RTM-006_new.fits'
+        #mean_bias_file = slot+'_mean_bias_image_RTM-006_new.fits'
         #imutils.fits_mean_file(bias_frames, os.path.join(config['tmp_dir'],mean_bias_file))
-        ccd_dict = sensorTest.MaskedCCD(fits_file, bias_frame=os.path.join(self.config_data['tmp_dir'],mean_bias_file))
+        #ccd_dict = sensorTest.MaskedCCD(fits_file, bias_frame=os.path.join(self.config_data['tmp_dir'],mean_bias_file))
+        
+        superbias_frame = make_superbias_frame(self.config_data, slot=slot)
+        ccd_dict = sensorTest.MaskedCCD(fits_file, bias_frame=os.path.join(self.config_data['tmp_dir'],superbias_frame))
+
         eotest_results_file = os.path.join(self.config_data['eo_data_path'],\
                                            '{}_eotest_results.fits'.format(ccd_dict.md('LSST_NUM')))
 
