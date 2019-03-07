@@ -54,14 +54,25 @@ def build_mean_bias_frame(config, slot, mean_frame_pattern='_mean_bias_image.fit
     bias_frames = glob.glob(os.path.join(config['path'], slot+'_Bias*'))
     mean_bias_file = slot + mean_frame_pattern
     imutils.fits_mean_file(bias_frames, os.path.join(config['tmp_dir'],mean_bias_file))
-    
+
+def make_superbias_frame(bias_files, slot, outfile):
+    """
+    Make and save a super biasframes. Only need to do it once for each slot.
+    make_image will look into config['tmp_dir'] to find them.
+    """
+    amp_geom = sensorTest.makeAmplifierGeometry(bias_files[0])
+    imutils.superbias_file(bias_files, amp_geom.serial_overscan, outfile) 
+
 def define_ccd_pos(ccd_pos_dict, raft_name, slot_names, xpos, ypos):
     """
     Updates a given dictionary of raft/slots center positions with that of a new raft.
     Inputs: raft_name (str), slot_names (list of str), xpos, ypos (lists of floats)           
     """
     ccd_pos_dict[raft_name] = {slot:[xpos[i],ypos[i]] for i,slot in enumerate(slot_names)}    
-    
+
+def glob_files(root_dir, raft, run, *args):
+    return sorted(glob.glob(os.path.join(root_dir, raft, run, *args)))
+        
 def make_image(config, slot_names, mean_frame_pattern='_mean_bias_image.fits'):
     """
     Make the mosaic image of the entire raft, when illuminated by the CCOB 
@@ -162,13 +173,13 @@ def make_ccd_image(seg_dict, ccd_dict, slot):
 
     return img_tot
 
-def make_ccd_2d_array(infile, gains=None):
+def make_ccd_2d_array(infile, biasfile=None, gains=None):
     '''
     Generate a 2d array of a sensor image (trimmed, bias subtracted) from 
     an input fits file and a gain dictionary. 
     Function adapted from sensorTest.plot_flat()
     '''
-    ccd = sensorTest.MaskedCCD(infile)
+    ccd = sensorTest.MaskedCCD(infile, bias_frame=biasfile)
     foo = fits.open(infile)
     datasec = parse_geom_kwd(foo[1].header['DATASEC'])
     # Specialize to science sensor or wavefront sensor geometries.
