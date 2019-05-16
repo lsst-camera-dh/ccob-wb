@@ -12,12 +12,15 @@ import astropy.io.fits as fits
 from astropy.utils.exceptions import AstropyWarning, AstropyUserWarning
 import pdb
 
-def gains(eotest_results_file):
+def gains(eotest_results_file, is_PTC=False):
     """
     Extract Fe55 gains from the results file of some eo testing.
     """
     results = sensorTest.EOTestResults(eotest_results_file)
-    return {amp: gain for amp, gain in zip(results['AMP'], results['GAIN'])}
+    if is_PTC:
+        return {amp: gain for amp, gain in zip(results['AMP'], results['PTC_GAIN'])}
+    else:
+        return {amp: gain for amp, gain in zip(results['AMP'], results['GAIN'])}
 
 
 def load_ccob_config(config_file):
@@ -46,22 +49,23 @@ def find_files(config, slot='*'):
     print(f_pattern)
     return glob.glob(f_pattern)
 
-def build_mean_bias_frame(config, slot, mean_frame_pattern='_mean_bias_image.fits'):
+def build_mean_bias_frame(config, slot, file_patterm='_mean_bias_image.fits'):
     """
     Builds and save mean bias frames. Only need to do it once for each slot.
     make_image will look into config['tmp_dir'] to find them.
     """
     bias_frames = glob.glob(os.path.join(config['path'], slot+'_Bias*'))
-    mean_bias_file = slot + mean_frame_pattern
-    imutils.fits_mean_file(bias_frames, os.path.join(config['tmp_dir'],mean_bias_file))
+    outfile = slot + file_pattern
+    imutils.fits_mean_file(bias_frames, os.path.join(config['tmp_dir'],outfile))
 
-def make_superbias_frame(bias_files, slot, outfile):
+def make_superbias_frame(config, bias_files, raft, slot, file_pattern='_sbias_image.fits'):
     """
     Make and save a super biasframes. Only need to do it once for each slot.
     make_image will look into config['tmp_dir'] to find them.
     """
     amp_geom = sensorTest.makeAmplifierGeometry(bias_files[0])
-    imutils.superbias_file(bias_files, amp_geom.serial_overscan, outfile) 
+    outfile = raft+'_'+slot + file_pattern
+    imutils.superbias_file(bias_files, amp_geom.serial_overscan, os.path.join(config['tmp_dir'],outfile)) 
 
 def define_ccd_pos(ccd_pos_dict, raft_name, slot_names, xpos, ypos):
     """

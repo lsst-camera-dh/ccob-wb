@@ -6,14 +6,196 @@ from scipy import interpolate
 from numpy import unravel_index
 import ccob_utils as u
 import pickle 
+import glob
+import pdb
+from astropy.io import fits as fits
 
 class CcobBeam:
     
     def __init__(self, config):
         self.config = config
         self.properties = {}
-        self.beam_image={}
+        self.beam_image = {}
+        self.raw_data = {}
 
+    def read_multibunch(self, ref_raft='R10', ref_slot='S11', ref_amps=np.arange(1,17), ref_pix_x=1000,
+               ref_pix_y=256, npix_for_avg=30, biasfile = None, dirlist=None, outdir=None):
+        
+        self.properties["ref_raft"] = ref_raft
+        self.properties["ref_slot"] = ref_slot
+        self.properties["ref_amp"] = ref_amps
+        self.properties["ref_pix_x"] = int(ref_pix_x)
+        self.properties["ref_pix_y"] = int(ref_pix_y)
+        self.properties["npix_for_avg"] = int(npix_for_avg)
+        
+        recons = {}
+        led = self.config['led_name']
+
+        dirlist = sorted(dirlist)
+        if 'xarr' not in self.raw_data: self.raw_data['xarr']=[]
+        if 'yarr' not in self.raw_data: self.raw_data['yarr']=[]
+        if 'val' not in self.raw_data: self.raw_data['val']={}
+        if 'pd_value' not in self.raw_data: self.raw_data['pd_value']=[]
+                
+        for i,d in enumerate(dirlist):
+            dd = os.path.basename(d)
+            xcurr = float(dd.split('_')[2])
+            ycurr = float(dd.split('_')[3])
+            l = list(zip(self.raw_data['xarr'], self.raw_data['yarr']))
+            print(d)
+
+            if (xcurr,ycurr) in l:
+                print('here')
+                continue
+                
+            self.raw_data['xarr'].append(xcurr)
+            self.raw_data['yarr'].append(ycurr)
+            
+            f = glob.glob(os.path.join(d, "*"+ref_raft+"*"+ref_slot+'*'))
+            bb = fits.open(f[0])
+            xh = np.round(bb[0].header['BOTXCAM'],1)
+            yh = np.round(bb[0].header['BOTYCAM'],1)
+#            self.raw_data['xarr'].append(np.round(bb[0].header['BOTX'],1))
+#            self.raw_data['yarr'].append(np.round(bb[0].header['BOTY'],1))
+            
+            self.raw_data['pd_value'].append(bb[0].header['CCOBADC'])
+            bb.close()
+            ccd_dict = sensorTest.MaskedCCD(f[0])
+            for amp in ref_amps:
+                image = ccd_dict.unbiased_and_trimmed_image(amp)
+                arr = image.getArrays()
+                val = np.mean((arr[0][int(ref_pix_x-npix_for_avg/2):int(ref_pix_x+npix_for_avg/2),\
+                                                int(ref_pix_y-npix_for_avg/2):int(ref_pix_y+npix_for_avg/2)]))
+                if amp in self.raw_data['val']:
+                    self.raw_data['val'][amp].append(val)
+                else :
+                    self.raw_data['val'][amp]=[val]
+#            print(os.path.basename(f[0]))
+                print(amp, self.raw_data['xarr'][-1], xh, self.raw_data['yarr'][-1], yh, val)
+                #print(self.raw_data['val'])
+
+        # Reordering the data
+        x = self.raw_data['xarr']
+        y = self.raw_data['yarr']
+        val = self.raw_data['val']
+        pd = self.raw_data['pd_value']
+        newx = [x for x,_,_,_ in sorted(zip(x,y,val[1],pd))]
+        newy = [y for _,y,_,_ in sorted(zip(x,y,val[1],pd))]
+        newpd = [pd for _,_,_,pd in sorted(zip(x,y,val[1],pd))]
+        newval = {}
+        for amp in ref_amps:
+            newval[amp] = [val for _,_,val,_ in sorted(zip(x,y,val[amp],pd))]
+
+        self.raw_data['xarr'] = newx
+        self.raw_data['yarr'] = newy
+        self.raw_data['val'] = newval
+        self.raw_data['pd_value'] = newpd       
+        
+        if outdir is not None:
+            for amp in ref_amps:
+                outf =os.path.join(outdir,'beam_raw_'+led+'_'+ref_raft+'_'+ref_slot+'_'
+                                   +str(amp)+'_'+str(ref_pix_x)+'_'+str(ref_pix_y)+'.txt')
+                np.savetxt(outf, np.array([newx, newy, newval[amp], newpd]).T, delimiter='   ')
+ 
+
+
+    def read_in_beamdata_BOT(self, ref_raft='R10', ref_slot='S11', ref_amp=4, ref_pix_x=1000,
+               ref_pix_y=256, npix_for_avg=30, dirlist=None, outfile=None):
+        
+        self.properties["ref_raft"] = ref_raft
+        self.properties["ref_slot"] = ref_slot
+        self.properties["ref_amp"] = ref_amp
+        self.properties["ref_pix_x"] = int(ref_pix_x)
+        self.properties["ref_pix_y"] = int(ref_pix_y)
+        self.properties["npix_for_avg"] = int(npix_for_avg)
+        
+        recons = {}
+        led = self.config['led_name']
+        print(led)
+
+        dirlist = sorted(dirlist)
+        if 'xarr' not in self.raw_data: self.raw_data['xarr']=[]
+        if 'yarr' not in self.raw_data: self.raw_data['yarr']=[]
+        if 'val' not in self.raw_data: self.raw_data['val']=[]
+        if 'pd_value' not in self.raw_data: self.raw_data['pd_value']=[]
+        
+        for i,d in enumerate(dirlist):
+            dd = os.path.basename(d)
+#            print(d, dd)
+            self.raw_data['xarr'].append(float(dd.split('_')[2]))
+            self.raw_data['yarr'].append(float(dd.split('_')[3]))
+
+            f = glob.glob(os.path.join(d, "*"+ref_raft+"*"+ref_slot+'*'))
+            bb = fits.open(f[0])
+            xh = np.round(bb[0].header['BOTXCAM'],1)
+            yh = np.round(bb[0].header['BOTYCAM'],1)
+            self.raw_data['pd_value'].append(bb[0].header['CCOBADC'])
+            bb.close()
+            ccd_dict = sensorTest.MaskedCCD(f[0])
+            image = ccd_dict.unbiased_and_trimmed_image(ref_amp)
+            arr = image.getArrays()
+            val = np.mean((arr[0][int(ref_pix_x-npix_for_avg/2):int(ref_pix_x+npix_for_avg/2),\
+                                                int(ref_pix_y-npix_for_avg/2):int(ref_pix_y+npix_for_avg/2)]))
+            self.raw_data['val'].append(val)
+#            print(os.path.basename(f[0]))
+            print(self.raw_data['xarr'][-1], xh, self.raw_data['yarr'][-1], yh, val)
+
+        x = self.raw_data['xarr']
+        y = self.raw_data['yarr']
+        val = self.raw_data['val']
+        pd = self.raw_data['pd_value']
+        
+        newx = [x for x,_,_,_ in sorted(zip(x,y,val,pd))]
+        newy = [y for _,y,_,_ in sorted(zip(x,y,val,pd))]
+        newval = [val for _,_,val,_ in sorted(zip(x,y,val,pd))]
+        newpd = [pd for _,_,_,pd in sorted(zip(x,y,val,pd))]
+
+        self.raw_data['xarr'] = newx
+        self.raw_data['yarr'] = newy
+        self.raw_data['val'] = newval
+        self.raw_data['pd_value'] = newpd
+ 
+        if outfile is not None:
+            np.savetxt(outfile, np.array([newx, newy, newval, newpd]).T, delimiter='   ')
+ 
+
+    def interp_beam_BOT(self, xrange=None, yrange=None, step=1, pd_corr=False):
+        
+        if xrange is None:
+            xrange = (min(self.raw_data['xarr']),max(self.raw_data['xarr']))
+
+        if yrange is None:
+            yrange= (min(self.raw_data['yarr']),max(self.raw_data['yarr']))
+
+        xmin,xmax = xrange
+        ymin,ymax = yrange
+          
+        filtx = ((np.array(self.raw_data['xarr']) >= xmin)*(np.array(self.raw_data['xarr']) <= xmax)) 
+        
+        tmp_x = np.array(self.raw_data['xarr'])[filtx]
+        tmp_y = np.array(self.raw_data['yarr'])[filtx]
+        tmp_val = np.array(self.raw_data['val'])[filtx]
+        tmp_pdvalue = np.array(self.raw_data['pd_value'])[filtx]
+
+        filty = ((tmp_y >= ymin)*(tmp_y <= ymax))
+            
+        nodes = {}
+        nodes['xarr'] = tmp_x[filty][::step]
+        nodes['yarr'] = tmp_y[filty][::step]
+        nodes['pd_value'] = tmp_pdvalue[filty][::step]
+        if not pd_corr:
+            nodes['val'] = tmp_val[filty][::step]
+        else:
+            nodes['val'] = np.array(tmp_val[filty][::step])/np.array(tmp_pdvalue[filty][::step])
+
+        self.beam_image['nodes'] = nodes
+        f_interp = interpolate.interp2d(np.unique(nodes['yarr']), 
+                                        np.unique(nodes['xarr']), 
+                                        np.reshape(nodes['val'],(len(np.unique(nodes['xarr'])),len(np.unique(nodes['yarr'])))),
+                                        kind='cubic')
+        
+        self.beam_image['f_interp'] = f_interp
+        
 
     def recons(self, ref_slot='11', ref_amp=4, ref_pix_x=1000,
                ref_pix_y=256, npix_for_avg=30):
@@ -42,7 +224,6 @@ class CcobBeam:
             arr = image.getArrays()
             nodes['val'].append(np.mean((arr[0][int(ref_pix_x-npix_for_avg/2):int(ref_pix_x+npix_for_avg/2),\
                                                 int(ref_pix_y-npix_for_avg/2):int(ref_pix_y+npix_for_avg/2)])))
-
         f_interp = interpolate.interp2d(np.unique(nodes['xarr']), np.unique(nodes['yarr']), nodes['val'], kind='cubic')
         self.beam_image['nodes'] = nodes
         self.beam_image['f_interp'] = f_interp
@@ -65,7 +246,24 @@ class CcobBeam:
         self.beam_image['yarr'] = yarr
         self.beam_image['beam'] = self.beam_image['f_interp'](xarr, yarr)
         return self.beam_image['beam']
-    
+ 
+    def make_image_BOT(self, ncols=300, nrows=300):
+        
+        self.properties['ncols'] = ncols
+        self.properties['nrows'] = nrows
+        
+        extent = [min(self.beam_image['nodes']['yarr']),
+                  max(self.beam_image['nodes']['yarr']),
+                  min(self.beam_image['nodes']['xarr']), 
+                  max(self.beam_image['nodes']['xarr'])]
+ 
+        xarr = np.linspace(extent[0],extent[1],nrows)
+        yarr = np.linspace(extent[2],extent[3],ncols)
+        self.beam_image['xarr'] = xarr
+        self.beam_image['yarr'] = yarr
+        self.beam_image['beam'] = self.beam_image['f_interp'](xarr, yarr)
+        return self.beam_image['beam']
+ 
 
     
     def find_max(self):
@@ -76,14 +274,27 @@ class CcobBeam:
         self.properties["max_yarg"] = yarg
 #        return self.properties["max_xccob"], self.propperties["self.max_yccob"], xarg, yarg
     
-    def plot(self):        
+    def plot(self, aspect=None):        
         extent = [min(self.beam_image['nodes']['xarr']),
                   max(self.beam_image['nodes']['xarr']),
                   min(self.beam_image['nodes']['yarr']), 
                   max(self.beam_image['nodes']['yarr'])]
-        plt.imshow(self.beam_image['beam'], extent=extent, origin='lower', aspect='equal')
+        plt.imshow(self.beam_image['beam'], extent=extent, origin='lower', aspect=aspect)
         plt.colorbar()
         plt.scatter(self.beam_image['nodes']['xarr'],self.beam_image['nodes']['yarr'], marker='+', color='blue')
+        if 'max_xccob' in self.properties:
+            plt.plot([self.properties['max_xccob']],[self.properties['max_yccob']], marker='x', color='red', markersize='6')
+        plt.show()
+
+        
+    def plot_BOT(self, aspect=None):        
+        extent = [min(self.beam_image['nodes']['yarr']),
+                  max(self.beam_image['nodes']['yarr']),
+                  min(self.beam_image['nodes']['xarr']), 
+                  max(self.beam_image['nodes']['xarr'])]
+        plt.imshow(self.beam_image['beam'], extent=extent, aspect=aspect)
+        plt.colorbar()
+        plt.scatter(self.beam_image['nodes']['yarr'],self.beam_image['nodes']['xarr'], marker='+', color='blue')
         if 'max_xccob' in self.properties:
             plt.plot([self.properties['max_xccob']],[self.properties['max_yccob']], marker='x', color='red', markersize='6')
         plt.show()
