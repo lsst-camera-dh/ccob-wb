@@ -3,6 +3,7 @@ import lsst.eotest.sensor as sensorTest
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import interpolate
+from scipy.ndimage.filters import median_filter, gaussian_filter
 from numpy import unravel_index
 import ccob_utils as u
 import pickle 
@@ -42,7 +43,7 @@ class CcobBeam:
             xcurr = float(dd.split('_')[2])
             ycurr = float(dd.split('_')[3])
             l = list(zip(self.raw_data['xarr'], self.raw_data['yarr']))
-            print(d)
+#            print(i)
 
             if (xcurr,ycurr) in l:
                 print('here')
@@ -71,7 +72,7 @@ class CcobBeam:
                 else :
                     self.raw_data['val'][amp]=[val]
 #            print(os.path.basename(f[0]))
-                print(amp, self.raw_data['xarr'][-1], xh, self.raw_data['yarr'][-1], yh, val)
+#                print(amp, self.raw_data['xarr'][-1], xh, self.raw_data['yarr'][-1], yh, val)
                 #print(self.raw_data['val'])
 
         # Reordering the data
@@ -154,12 +155,28 @@ class CcobBeam:
         self.raw_data['yarr'] = newy
         self.raw_data['val'] = newval
         self.raw_data['pd_value'] = newpd
- 
+
+
         if outfile is not None:
             np.savetxt(outfile, np.array([newx, newy, newval, newpd]).T, delimiter='   ')
  
 
-    def interp_beam_BOT(self, xrange=None, yrange=None, step=1, pd_corr=False):
+    def interp_beam_BOT(self, xrange=None, yrange=None, step=1, pd_corr=False, amp=1, use_filt = False):
+
+        if not pd_corr:
+            val_arr = np.array(self.raw_data['val'][amp])
+        else:
+            val_arr = np.array(self.raw_data['val'][amp])/np.array(self.raw_data['pd_value'])
+
+        
+        raw_image = np.reshape(val_arr,
+                               (len(np.unique(self.raw_data['xarr'])),
+                                len(np.unique(self.raw_data['yarr']))))
+#        self.raw_data['filtered'] = median_filter(raw_image, size=(5,5), mode = 'nearest').flatten()
+        self.raw_data['filtered'] = gaussian_filter(raw_image, sigma=(1,1)).flatten()
+
+        
+        if use_filt: val_arr = np.array(self.raw_data['filtered'])
         
         if xrange is None:
             xrange = (min(self.raw_data['xarr']),max(self.raw_data['xarr']))
@@ -173,25 +190,32 @@ class CcobBeam:
         filtx = ((np.array(self.raw_data['xarr']) >= xmin)*(np.array(self.raw_data['xarr']) <= xmax)) 
         
         tmp_x = np.array(self.raw_data['xarr'])[filtx]
-        tmp_y = np.array(self.raw_data['yarr'])[filtx]
-        tmp_val = np.array(self.raw_data['val'])[filtx]
-        tmp_pdvalue = np.array(self.raw_data['pd_value'])[filtx]
+        good_x = np.unique(tmp_x)[::step]
+        filtx2 = [e in good_x for e in tmp_x]
+        tmp_x = tmp_x[filtx2]
+        
+        tmp_y = np.array(self.raw_data['yarr'])[filtx][filtx2]
+#        tmp_val = np.array(self.raw_data['val'][amp])[filtx][filtx2]
+        tmp_val = val_arr[filtx][filtx2]
+#        tmp_pdvalue = np.array(self.raw_data['pd_value'])[filtx][filtx2]
 
         filty = ((tmp_y >= ymin)*(tmp_y <= ymax))
             
         nodes = {}
         nodes['xarr'] = tmp_x[filty][::step]
         nodes['yarr'] = tmp_y[filty][::step]
-        nodes['pd_value'] = tmp_pdvalue[filty][::step]
-        if not pd_corr:
-            nodes['val'] = tmp_val[filty][::step]
-        else:
-            nodes['val'] = np.array(tmp_val[filty][::step])/np.array(tmp_pdvalue[filty][::step])
+        nodes['val'] = tmp_val[filty][::step]
+#        nodes['pd_value'] = tmp_pdvalue[filty][::step]
+#        if not pd_corr:
+#            nodes['val'] = tmp_val[filty][::step]
+#        else:
+#            nodes['val'] = np.array(tmp_val[filty][::step])/np.array(tmp_pdvalue[filty][::step])
 
         self.beam_image['nodes'] = nodes
+        raw_image = np.reshape(nodes['val'],(len(np.unique(nodes['xarr'])),len(np.unique(nodes['yarr']))))
         f_interp = interpolate.interp2d(np.unique(nodes['yarr']), 
                                         np.unique(nodes['xarr']), 
-                                        np.reshape(nodes['val'],(len(np.unique(nodes['xarr'])),len(np.unique(nodes['yarr'])))),
+                                        raw_image,
                                         kind='cubic')
         
         self.beam_image['f_interp'] = f_interp
@@ -252,16 +276,22 @@ class CcobBeam:
         self.properties['ncols'] = ncols
         self.properties['nrows'] = nrows
         
-        extent = [min(self.beam_image['nodes']['yarr']),
-                  max(self.beam_image['nodes']['yarr']),
-                  min(self.beam_image['nodes']['xarr']), 
-                  max(self.beam_image['nodes']['xarr'])]
- 
-        xarr = np.linspace(extent[0],extent[1],nrows)
-        yarr = np.linspace(extent[2],extent[3],ncols)
+#        extent = [min(self.beam_image['nodes']['xarr']),
+#                  max(self.beam_image['nodes']['xarr']),
+#                  min(self.beam_image['nodes']['yarr']), 
+#                  max(self.beam_image['nodes']['yarr'])]
+
+        extent = [min(self.raw_data['xarr']),
+                  max(self.raw_data['xarr']),
+                  min(self.raw_data['yarr']), 
+                  max(self.raw_data['yarr'])]
+
+
+        xarr = np.linspace(extent[0],extent[1],ncols)
+        yarr = np.linspace(extent[2],extent[3],nrows)
         self.beam_image['xarr'] = xarr
         self.beam_image['yarr'] = yarr
-        self.beam_image['beam'] = self.beam_image['f_interp'](xarr, yarr)
+        self.beam_image['beam'] = self.beam_image['f_interp'](yarr, xarr)
         return self.beam_image['beam']
  
 
@@ -288,13 +318,22 @@ class CcobBeam:
 
         
     def plot_BOT(self, aspect=None):        
-        extent = [min(self.beam_image['nodes']['yarr']),
-                  max(self.beam_image['nodes']['yarr']),
-                  min(self.beam_image['nodes']['xarr']), 
-                  max(self.beam_image['nodes']['xarr'])]
-        plt.imshow(self.beam_image['beam'], extent=extent, aspect=aspect)
+#        extent = [min(self.beam_image['nodes']['yarr']),
+#                  max(self.beam_image['nodes']['yarr']),
+#                  min(self.beam_image['nodes']['xarr']), 
+#                  max(self.beam_image['nodes']['xarr'])]
+        
+        colsize = (max(self.beam_image['nodes']['xarr'])-min(self.beam_image['nodes']['xarr']))/(self.properties['ncols'])
+        rowsize = (max(self.beam_image['nodes']['yarr'])-min(self.beam_image['nodes']['yarr']))/(self.properties['nrows'])
+        extent = [max(self.beam_image['nodes']['xarr'])+colsize/2,
+                  min(self.beam_image['nodes']['xarr'])-colsize/2,
+                  min(self.beam_image['nodes']['yarr'])-rowsize/2, 
+                  max(self.beam_image['nodes']['yarr'])+rowsize/2]
+
+        im = np.flip(np.flip(self.beam_image['beam'].T, axis=1),axis=0)
+        plt.imshow(im, extent=extent, aspect=aspect)
         plt.colorbar()
-        plt.scatter(self.beam_image['nodes']['yarr'],self.beam_image['nodes']['xarr'], marker='+', color='blue')
+#        plt.scatter(self.beam_image['nodes']['yarr'],self.beam_image['nodes']['xarr'], marker='+', color='blue')
         if 'max_xccob' in self.properties:
             plt.plot([self.properties['max_xccob']],[self.properties['max_yccob']], marker='x', color='red', markersize='6')
         plt.show()
