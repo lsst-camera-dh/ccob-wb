@@ -28,7 +28,7 @@ def load_ccob_config(config_file):
     Loads ccob configuration (led, current, exp_time and position)
     from a config yaml file
     """
-    config = yaml.load(open(config_file))
+    config = yaml.load(open(config_file), Loader=yaml.FullLoader)
     if 'path' not in config.keys(): config['path'] = './'
     if 'led_name' not in config.keys(): config['led_name'] = '*'
     if 'current' not in config.keys(): config['current'] = '*'
