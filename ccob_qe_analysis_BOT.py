@@ -72,6 +72,12 @@ def compute_offsets(beam, lct, ccdid='R22_S11'):
         width_seg = 508
         length_seg = 2000
 
+    d = amp_to_seg_dict()
+    seg = d[b.properties['analysis_amp']]
+    
+    zero_x = width_seg*int(seg[1])
+    zero_y = length_seg*int(seg[])
+    
     ref_pix_x =  + beam.properties['ref_pix_x']
     ref_pix_y =  + beam.properties['ref_pix_y']
         
