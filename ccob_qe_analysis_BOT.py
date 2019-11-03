@@ -209,9 +209,9 @@ if __name__ == '__main__':
             model_normalised = model_eotestDef/np.max(model_eotestDef.flatten())
             qe = mosaic/model_normalised
       
-            outfile = outdir+'fits/QE_'+data_ccdid+'_'+pos+'.fits'
+            outfile = outdir+'fits/QE_'+data_ccdid+'_'+led+'_'+pos+'.fits'
             make_fits(qe, outfile, data.data[pos]['amp_coord'], data.template_file)
 
-            figfile = outdir+'figs/QE_'+data_ccdid+'_'+pos+'.png'
+            figfile = outdir+'fits/QE_'+data_ccdid+'_'+led+'_'+pos+'.png'
             plot_results(qe, model, mosaic, data_ccdid, data.lct, pos, figfile)
 
