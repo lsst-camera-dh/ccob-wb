@@ -1,9 +1,13 @@
 import os
+import glob
+import pickle as pkl
+import scipy
 import lsst.eotest.image_utils as imutils
 import lsst.eotest.sensor as sensorTest
 import numpy as np
 import ccob_utils as u
 import ccob_beam as b
+import ccob_qe_data as qe_data
 import pickle
 import matplotlib.pyplot as plt
 import pdb 
@@ -11,7 +15,7 @@ from lsst.obs.lsst.cameraTransforms import LsstCameraTransforms
 from lsst.obs.lsst import LsstCamMapper as camMapper
 
 
-def load_ccob_beam(path_to_beam='/home/combet/tmp_9rafts/60x60' ,led_name='red', ref_amp=5, ccdid='R22_S11', ref_pix_x=1000,ref_pix_y=256):
+def load_beam_model(path_to_beam, led_name='red', ref_amp=5, ccdid='R22_S11'):
     """
     Load a CCOB beam object from a scan, find the maximum
 
@@ -21,16 +25,11 @@ def load_ccob_beam(path_to_beam='/home/combet/tmp_9rafts/60x60' ,led_name='red',
             Choice of CCOB LED
         ref_amp: int
             Amplifier where the bunch of pixels is located
-        ref_slot: string
-            Sensor where the bunch of pixels is located
-        ref_pix_x: int
-            x position in pixel coordinates where the bunch of pixels is located
-        ref_pix_y:
-            y position in pixel coordinates where the bunch of pixels is located
-
+        ccdid: string
+            RXX_SYY - Raft/Sensor where the bunch of pixels is located
     """
 
-    fl = glob.glob(os.path.join(path_to_beam),'*'+ccdid+'_'+led_name+'*')
+    fl = glob.glob(os.path.join(path_to_beam,'*'+ccdid+'_'+led_name+'*'))
     beam_file = fl[0]
     b = pkl.load(open(beam_file,'rb'))
     b.interp_beam_BOT(amp=ref_amp, pd_corr=True)
@@ -38,147 +37,80 @@ def load_ccob_beam(path_to_beam='/home/combet/tmp_9rafts/60x60' ,led_name='red',
     b.find_max_from_avg()
     return b
 
+def compute_offsets(beam, lct, ccdid='R22_S11', ref_pix_x=2304, ref_pix_y=3003):
+    '''    
+    beam: beam object
+    ccdid: raft_sensor from which the beam object was computed
+    ref_pix_x, ref_pix_y: pixel in raft_sensor from which the beam was reconstructed. These are given in FP coordinates/convention - (0,0) is the bottom left corner of the sensor
+    '''    
 
-def amp_to_seg_dict():
-
-    d = {
-        1:'10',
-        2:'11',
-        3:'12',
-        4:'13',
-        5:'14',
-        6:'15',
-        7:'16',
-        8:'17', 
-        9:'07',
-        10:'06',
-        11:'05',
-        12:'04',
-        13:'03',
-        14:'02',
-        15:'01',
-        16:'00'
-    }
-    return d
-
-def compute_offsets(beam, lct, ccdid='R22_S11'):
-    
     det = lct.getDetector(ccdid)
-    tmp_ccdid, xmax, ymax = lct.focalMmToCcdPixel(bb.properties['max_yccob'], bb.properties['max_xccob'])
-    if 'E2V' in det.getSerial():
-        width_seg = 512
-        length_seg = 2002
-    else:
-        width_seg = 508
-        length_seg = 2000
-
-    d = amp_to_seg_dict()
-    seg = d[b.properties['analysis_amp']]
-    
-    zero_x = width_seg*int(seg[1])
-    zero_y = length_seg*int(seg[])
-    
-    ref_pix_x =  + beam.properties['ref_pix_x']
-    ref_pix_y =  + beam.properties['ref_pix_y']
+    # FP coordinates of the reconstructed beam maximum
+    tmp_ccdid, xmax, ymax = lct.focalMmToCcdPixel(beam.properties['max_yccob'], beam.properties['max_xccob'])
         
     delta_x = ref_pix_x - xmax
     delta_y = ref_pix_y -ymax
     return delta_x, delta_y # in FP coordinates
 
-def load_ccd(self, led_name='red'):
-    """
-    Load and generate mosaic image from a given sensor illuminated 
-    by the CCOB. The path to the data is provided in the self.config_file_data file.
 
-    Parameters
-    ----------
-        led_name: choice of the CCOB LED. Either one of ['nm960','nm850','nm750,'red','blue,'uv'] 
-    """
+def define_model_bbox(beam_model, mosaic, lct, pos, delta_x, delta_y):
+    
+    xccob = float(pos.split('_')[0]) # CCS
+    yccob = float(pos.split('_')[1]) # CCS
+    ccdid, x_from_ccob_pos, y_from_ccob_pos = lct.focalMmToCcdPixel(yccob, xccob) # FP coord
 
-    #config_file_data = '../ccob_config_RTM-006.yaml'
-#        config_data = u.load_ccob_config(self.config_file_data)
-#        config_beam = u.load_ccob_config(self.config_file_beam)
+    geom_center_pos = (np.shape(mosaic)[1]-(x_from_ccob_pos+delta_x),y_from_ccob_pos+delta_y) # EOtest coord
 
-    self.config_data['led_name'] = led_name
-    slot = self.beam.properties['ref_slot']
-    file_list=sorted(u.find_files(self.config_data, slot=slot))
-
-    mean_slot_file = slot+'_mean_ccob_image.fits'
-    imutils.fits_mean_file(file_list, os.path.join(self.config_data['tmp_dir'],mean_slot_file))
-
-    fits_file = os.path.join(self.config_data['tmp_dir'],mean_slot_file)
-    gains_dict={}
-    ccd_dict={}
-
-    #bias_frames = glob.glob(os.path.join(config['path'], slot+'_bias*'))
-    #mean_bias_file = slot+'_mean_bias_image_RTM-006_new.fits'
-    #imutils.fits_mean_file(bias_frames, os.path.join(config['tmp_dir'],mean_bias_file))
-    #ccd_dict = sensorTest.MaskedCCD(fits_file, bias_frame=os.path.join(self.config_data['tmp_dir'],mean_bias_file))
-
-    superbias_frame = make_superbias_frame(self.config_data, slot=slot)
-    ccd_dict = sensorTest.MaskedCCD(fits_file, bias_frame=os.path.join(self.config_data['tmp_dir'],superbias_frame))
-
-    eotest_results_file = os.path.join(self.config_data['eo_data_path'],\
-                                       '{}_eotest_results.fits'.format(ccd_dict.md('LSST_NUM')))
-
-    gains_dict = u.gains(eotest_results_file)
-    self.ccd = {}
-    self.ccd['mosaic'], self.ccd['amp_coord'] = u.make_ccd_2d_array(fits_file, gains=gains_dict)
-    self.ccd['xpos_ccob'] = self.config_data['xpos']
-    self.ccd['ypos_ccob'] = self.config_data['ypos']
-
-    return self.ccd
-
-def compute_QE(self):
-    """
-    Computes the mosaicked QE image from the reconstructed beam image (self.beam) and the 
-    CCOB-illuminated sensor image (self.ccd).
-
-    First, the beam model image is matched to the data, given the position of the CCOB when the data
-    were taken. Then the ratio data/beam produced the CCOB flat field from which the relative QE may be measured.
-    """
-
-    # First need to match a beam image to the ccd data, given the position of the CCOB
-    ref_pix = u.pix_coord_in_mosaic(self.ccd['amp_coord'], self.beam.properties['ref_amp'], \
-                                    self.beam.properties['ref_pix_y'],
-                                    self.beam.properties['ref_pix_x'])
-
-    delta_x = float(self.ccd['ypos_ccob']) - self.beam.properties['max_yccob']
-    delta_y = float(self.ccd['xpos_ccob']) - self.beam.properties['max_xccob']
-    delta_x_pix = int(delta_x/0.01)
-    delta_y_pix = int(delta_y/0.01)
-
-    print('deplacement in mm: dx=%0.2f dy=%0.2f'%(delta_x, delta_y))
-    print('deplacement in pixels: dx=%i dy=%i'%(delta_x_pix, delta_y_pix))
-
-    geom_center_pos=(ref_pix[0]+delta_x_pix, ref_pix[1]+delta_y_pix)
-
-    # distance from beam center to ccd edges in mm
     dist_to_left = geom_center_pos[0]*0.01
-    dist_to_bottom = geom_center_pos[1]*0.01
-    dist_to_right = (self.ccd['mosaic'].shape[1]-geom_center_pos[0])*0.01
-    dist_to_top = (self.ccd['mosaic'].shape[0]-geom_center_pos[1])*0.01
+    dist_to_top = geom_center_pos[1]*0.01
+    dist_to_right = (mosaic.shape[1] - geom_center_pos[0])*0.01
+    dist_to_bottom = (mosaic.shape[0] - geom_center_pos[1])*0.01
+    print(dist_to_left,dist_to_bottom,dist_to_right,dist_to_top)
+    print(dist_to_left+dist_to_right, dist_to_bottom+dist_to_top)
 
-    # bounding box to use to reconstruct the CCOB with dimensions matching ccd
-    bbox = (self.beam.properties['max_xccob'] - dist_to_left,
-    self.beam.properties['max_xccob'] + dist_to_right,
-    self.beam.properties['max_yccob'] - dist_to_bottom,
-    self.beam.properties['max_yccob'] + dist_to_top)
+    bbox=(beam_model.properties['max_xccob']-dist_to_bottom,
+          beam_model.properties['max_xccob']+dist_to_top,
+          beam_model.properties['max_yccob']-dist_to_left,
+          beam_model.properties['max_yccob']+dist_to_right)
+    print(np.shape(mosaic))
+    print(-bbox[0]+bbox[1])
+    print(-bbox[2]+bbox[3])
+    
+    return bbox
 
-    xarr = np.linspace(bbox[0],bbox[1],self.ccd['mosaic'].shape[1])
-    yarr = np.linspace(bbox[2],bbox[3],self.ccd['mosaic'].shape[0])
-    self.beam_image = self.beam.beam_image['f_interp'](xarr, yarr)
+def plot_results(qe, model, mosaic, data_ccdid, lct, pos, delta_x, delta_y, filename):
 
-    # Raw QE (flat) is simply the ccd-to-beam ratio
-    self.QE = self.ccd['mosaic']/self.beam_image
-    return self.QE
+    xccob = float(pos.split('_')[0]) # CCS
+    yccob = float(pos.split('_')[1]) # CCS
+    ccdid, x_from_ccob_pos, y_from_ccob_pos = lct.focalMmToCcdPixel(yccob, xccob) # FP coord
+    geom_center_pos = (np.shape(mosaic)[1]-(x_from_ccob_pos+delta_x),y_from_ccob_pos+delta_y) # EOtest coord
 
-def plot_QE(self):
-    plt.imshow(self.QE.QE, vmin=0.695, vmax=0.715, cmap='hot')
-    plt.colorbar()
-    plt.show()
+    fig, axes = plt.subplots(ncols=3, nrows=1,  figsize=(12, 5))
+    vmin = np.median(mosaic.flatten())*0.95
+    vmax = np.median(mosaic.flatten())*1.02
+    im0 = axes[0].imshow(mosaic, vmin=vmin, vmax=vmax)
+    axes[0].plot([np.shape(mosaic)[1]-x_from_ccob_pos],[y_from_ccob_pos], marker='+',color='red')
+    axes[0].plot([geom_center_pos[0]],[geom_center_pos[1]], marker='o',color='yellow')
+    im1 = axes[1].imshow(model)
 
-def make_fits(self, outfile, template_file):
+    qe_sm = scipy.ndimage.filters.gaussian_filter(qe, 10, mode='constant')
+    vmin = np.median(qe_sm.flatten())*0.99
+    vmax = np.median(qe_sm.flatten())*1.01
+    im2 = axes[2].imshow(qe_sm, vmin=vmin, vmax=vmax)
+
+    axes[0].set_title(data_ccdid+', '+pos)
+    axes[1].set_title('Beam model')
+    axes[2].set_title('Flat = data/model')
+
+    fig.colorbar(im0, ax=axes[0],fraction=0.046, pad=0.04)
+    fig.colorbar(im1, ax=axes[1],fraction=0.046, pad=0.04)
+    fig.colorbar(im2, ax=axes[2],fraction=0.046, pad=0.04)
+    fig.tight_layout()
+    fig.savefig(filename)
+
+
+
+def make_fits(QE_map, amp_coord, outfile, template_file):
     """
     Saves the mosaicked QE image into a fits file, using the default format 
 
@@ -192,19 +124,19 @@ def make_fits(self, outfile, template_file):
     """
     amp_dict = {}
 
-    for i,amp_pos in enumerate(self.ccd['amp_coord']):
+    for amp_pos in amp_coord.keys():
 
-        amp = self.ccd['amp_coord'][amp_pos]['amp']
-        xmin = self.ccd['amp_coord'][amp_pos]['xmin']
-        xmax = self.ccd['amp_coord'][amp_pos]['xmax']
-        ymin = self.ccd['amp_coord'][amp_pos]['ymin']
-        ymax = self.ccd['amp_coord'][amp_pos]['ymax']
-        flipx = self.ccd['amp_coord'][amp_pos]['flipx']
-        flipy = self.ccd['amp_coord'][amp_pos]['flipy']
-        detsec = self.ccd['amp_coord'][amp_pos]['detsec']
-        datasec = self.ccd['amp_coord'][amp_pos]['datasec']
+        amp = amp_coord[amp_pos]['amp']
+        xmin = amp_coord[amp_pos]['xmin']
+        xmax = amp_coord[amp_pos]['xmax']
+        ymin = amp_coord[amp_pos]['ymin']
+        ymax = amp_coord[amp_pos]['ymax']
+        flipx = amp_coord[amp_pos]['flipx']
+        flipy = amp_coord[amp_pos]['flipy']
+        detsec = amp_coord[amp_pos]['detsec']
+        datasec = amp_coord[amp_pos]['datasec']
 
-        foo = self.QE[ymin:ymax,xmin:xmax]
+        foo = QE_map[ymin:ymax,xmin:xmax]
 
         if flipx:
             amp_dict[amp] = foo[:,::-1]
@@ -225,49 +157,61 @@ def make_fits(self, outfile, template_file):
     u.writeFits_from_dict(amp_dict_w_overscan, outfile, template_file, bitpix=-32)
     
     
-    
 if __name__ == '__main__':
 
-#    led_names = ['nm850', 'nm750', 'red']
-#    config_file_beam = 'ccob_beam_recons_config.yaml'
-#    config_file_data = 'ccob_config_RTM-006.yaml'
+    camera = camMapper._makeCamera()
+    lct = LsstCameraTransforms(camera)
 
-#    xpos = [253.0, 253.0, 253.0, 295.0, 295.0, 295.0, 337.0, 337.0, 337.0]
-#    ypos = [237.0, 195.0, 153.0, 237.0, 195.0, 153.0, 237.0, 195.0, 153.0]
-#    slot_names=['00','01','02','10','11','12','20','21','22']
-#    ccd_pos_dict={}
-#    u.define_ccd_pos(ccd_pos_dict, 'RTM-006', slot_names, xpos, ypos)        
-
-
-    led_names = ['red']
-    config_file_beam = 'ccob_beam_recons_config.yaml'
-    config_file_data = 'ccob_config_RTM-006.yaml'
-
-    xpos = [253.0]
-    ypos = [237.0]
-    slot_names=['00']
-    ccd_pos_dict={}
-    u.define_ccd_pos(ccd_pos_dict, 'RTM-006', slot_names, xpos, ypos)        
-  
     
-    for led in led_names:
+    basedir1 = '/gpfs/slac/lsst/fs3/g/data/jobHarness/jh_stage-test/LCA-10134_Cryostat/LCA-10134_Cryostat-0001/'
+    basedir2 = '/gpfs/slac/lsst/fs3/g/data/jobHarness/jh_stage/LCA-10134_Cryostat/LCA-10134_Cryostat-0001/'
 
-        for slot in ccd_pos_dict['RTM-006']:
-            print(slot)
-            QE = qe.CcobQE(config_file_beam, config_file_data)
-            QE.make_ccob_beam(led_name=led, ref_amp=13, ref_slot=slot, ref_pix_x=1000,ref_pix_y=256)
-            print(QE.beam.properties)
+    path_to_data = {'R01': basedir1 + '6848D/BOT_acq/v0/48087/',
+                    'R02': basedir1 + '6849D/BOT_acq/v0/48093/',
+                    'R10': None,
+                    'R11': basedir1 + '6851D/BOT_acq/v0/48108/',
+                    'R12': basedir1 + '6852D/BOT_acq/v0/48113/',
+                    'R20': basedir1 + '6853D/BOT_acq/v0/48118/',
+                    'R21': None,
+                    'R22': basedir2 + '11974/BOT_acq/v0/93868/',
+                    'R30': basedir1 + '6843D/BOT_acq/v0/48047/'
+                   }
+    path_to_beam = '/home/combet/tmp_9rafts/60x60/'
+    outdir = '/home/combet/tmp_9rafts/QE_results/'
 
-            QE.config_data['xpos'] = str(ccd_pos_dict['RTM-006'][slot][0])
-            QE.config_data['ypos'] = str(ccd_pos_dict['RTM-006'][slot][1])
-            ccd = QE.load_ccd(led_name=led)
+    led = 'red'
+    
+    model_ccdid = 'R22_S11'
+    beam_model = load_beam_model(path_to_beam, led_name=led, ref_amp=5, ccdid=model_ccdid)
+    delta_x, delta_y = compute_offsets(beam_model, lct, ccdid=model_ccdid, ref_pix_x=2304, ref_pixy=3003)
+    
+    raft_list = ['R22', 'R30', 'R01']
+    sensor_list = ['S00','S01','S02','S10','S11','S12','S20','S21','S22']
+    ccdid_list = sorted([raft+'_'+sensor for sensor in sensor_list for raft in raft_list])
+    
+    for data_ccdid in ccdid_list:
+        gainfile = '/gpfs/slac/lsst/fs3/g/data/jobHarness/jh_stage-test/LCA-10134_Cryostat/LCA-10134_Cryostat-0001/6801D/fe55_analysis_BOT/v0/47706/'+data_ccdid+'_6801D_eotest_results.fits'
+            
+        raft = data_ccdid.split('_')[0]
+        data = qe_data.CcobQeData(data_ccdid, led, path_to_data[raft], gainfile, biasfile=None)
+        data.find_dir()
 
-            QE.compute_QE()
-            template_path = '/gpfs/slac/lsst/fs1/g/data/jobHarness/jh_archive-test/LCA-11021_RTM/LCA-11021_RTM-006-Dev/5867D/qe_raft_acq/v0/38892/S'+slot
-            template_file = glob.glob(os.path.join(os.path.join(QE.config_data['path'],led),slot+'*'))[0]
-            outfile = os.path.join(QE.config_data['tmp_dir'],'QE_S' + slot + '_' + led
-                                   + '_amp'+str(QE.beam.properties['ref_amp'])
-                                   + '_refx'+str(QE.beam.properties['ref_pix_x'])
-                                   + '_refy'+str(QE.beam.properties['ref_pix_y'])+'.fits')
-            QE.make_fits(outfile, template_file)        
+        for pos in data.pos_list:
+            data.make_avg_mosaic_at_pos(pos, '/home/combet/tmp_9rafts/')
+            mosaic = data.data[pos]['mosaic']
+            bbox = define_model_bbox(beam_model, mosaic, data.lct, pos, delta_x, delta_y)
+
+            xarr = np.linspace(bbox[0],bbox[1],mosaic.shape[0])
+            yarr = np.linspace(bbox[2],bbox[3],mosaic.shape[1])
+            tmp = beam_model.beam_image['f_interp'](xarr, yarr) # interp works in cam coordinates
+            tmp = np.flip(np.flip(tmp,axis=0),axis=1) # invert the model in x and in y 
+            model_eotestDef = np.flip(tmp.T, axis=1) # beam model followinf EOTest convention
+            model_normalised = model_eotestDef/np.max(model_eotestDef.flatten())
+            qe = mosaic/model_normalised
+      
+            outfile = outdir+'fits/QE_'+data_ccdid+'_'+pos+'.fits'
+            make_fits(qe, outfile, data.data[pos]['amp_coord'], data.template_file)
+
+            figfile = outdir+'figs/QE_'+data_ccdid+'_'+pos+'.png'
+            plot_results(qe, model, mosaic, data_ccdid, data.lct, pos, figfile)
 
