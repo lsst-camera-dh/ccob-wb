@@ -49,7 +49,7 @@ def compute_offsets(beam, lct, ccdid='R22_S11', ref_pix_x=2304, ref_pix_y=3003):
     tmp_ccdid, xmax, ymax = lct.focalMmToCcdPixel(beam.properties['max_yccob'], beam.properties['max_xccob'])
         
     delta_x = ref_pix_x - xmax
-    delta_y = ref_pix_y -ymax
+    delta_y = ref_pix_y - ymax
     return delta_x, delta_y # in FP coordinates
 
 
@@ -96,6 +96,10 @@ def plot_results(qe, model, mosaic, data_ccdid, lct, pos, delta_x, delta_y, file
     qe_sm = scipy.ndimage.filters.gaussian_filter(qe, 10, mode='constant')
     vmin = np.median(qe_sm.flatten())*0.99
     vmax = np.median(qe_sm.flatten())*1.01
+#    vmin = np.max(mosaic.flatten())*0.99
+#    vmax = np.max(mosaic.flatten())*1.01
+#    vmin = 0.99
+#    vmax = 1.01
     im2 = axes[2].imshow(qe_sm, vmin=vmin, vmax=vmax)
 
     axes[0].set_title(data_ccdid+', '+pos)
@@ -107,6 +111,7 @@ def plot_results(qe, model, mosaic, data_ccdid, lct, pos, delta_x, delta_y, file
     fig.colorbar(im2, ax=axes[2],fraction=0.046, pad=0.04)
     fig.tight_layout()
     fig.savefig(filename)
+    plt.close()
 
 
 
@@ -154,7 +159,7 @@ def make_fits(QE_map, amp_coord, outfile, template_file):
         arr[datasec['ymin']-1:datasec['ymax'],datasec['xmin']-1:datasec['xmax']] = amp_dict[amp]
         amp_dict_w_overscan[amp] = arr
 
-    u.writeFits_from_dict(amp_dict_w_overscan, outfile, template_file, bitpix=-32)
+    u.writeFits_from_dict(amp_dict_w_overscan, outfile, template_file)#, bitpix=-32)
     
     
 if __name__ == '__main__':

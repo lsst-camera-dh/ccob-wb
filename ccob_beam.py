@@ -234,7 +234,7 @@ class CcobBeam:
 
         im = np.flip(self.beam_image['beam'],axis=1)
 
-        plt.imshow(im, extent=extent, aspect=aspect, origin='lower')
+        plt.imshow(im/np.max(im.flatten()), extent=extent, aspect=aspect, origin='lower', vmin=0.7, vmax=1)
         plt.colorbar()
 #        plt.scatter(self.beam_image['nodes']['xarr'],self.beam_image['nodes']['yarr'], marker='+', color='blue')
         if 'max_xccob' in self.properties:
