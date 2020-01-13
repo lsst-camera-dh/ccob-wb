@@ -11,9 +11,10 @@ Stability during the scan is monitored/ensured by a control photodiode mounted o
 
 ## Requirements
 
-CLMM requires Python version 3.6 or later.  To run the code, there are the following dependencies:
+ccob-wb requires Python version 3.6 or later and depends on:
 
 - [astropy](https://www.astropy.org/) 
+- [eotest](https://github.com/lsst-camera-dh/eotest)
 - [matplotlib](https://matplotlib.org/)
 - [numpy](http://www.numpy.org/)
 - [scipy](http://www.scipy.org/)
