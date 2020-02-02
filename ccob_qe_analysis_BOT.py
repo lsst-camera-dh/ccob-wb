@@ -159,7 +159,7 @@ def make_fits(QE_map, amp_coord, outfile, template_file):
         arr[datasec['ymin']-1:datasec['ymax'],datasec['xmin']-1:datasec['xmax']] = amp_dict[amp]
         amp_dict_w_overscan[amp] = arr
 
-    u.writeFits_from_dict(amp_dict_w_overscan, outfile, template_file)#, bitpix=-32)
+    u.writeFits_from_dict(amp_dict_w_overscan, outfile, template_file)#,bitpix=-32)
     
     
 if __name__ == '__main__':

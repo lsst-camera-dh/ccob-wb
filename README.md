@@ -11,7 +11,7 @@ Stability during the scan is monitored/ensured by a control photodiode mounted o
 
 ## Requirements
 
-ccob-wb requires Python version 3.6 or later and depends on:
+`ccob-wb` requires Python version 3.6 or later and depends on:
 
 - [astropy](https://www.astropy.org/) 
 - [eotest](https://github.com/lsst-camera-dh/eotest)
@@ -20,3 +20,8 @@ ccob-wb requires Python version 3.6 or later and depends on:
 - [scipy](http://www.scipy.org/)
 - [dm-stack](https://pipelines.lsst.io/) (LSST analysis pipeline)
 
+## Running the analysis
+
+At the moment, the analysis is not automated and the various steps need to be run by hand. Also, data may be spread over several directories, depending on how the acquisition went.
+
+- `make_raw_beam.ipynb` [needs cleanup] in the notebook folder, examplifies how to reconstruct the beam model from the scan over the bunch of reference pixels. This produces a pickle file containing the beam object. There are several attributes to the beam object, including:
