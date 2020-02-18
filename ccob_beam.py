@@ -2,6 +2,7 @@ import os
 import lsst.eotest.sensor as sensorTest
 import matplotlib.pyplot as plt
 import numpy as np
+import sys
 from scipy import interpolate
 from scipy.ndimage.filters import median_filter, gaussian_filter
 from numpy import unravel_index
@@ -20,7 +21,7 @@ class CcobBeam:
         self.raw_data = {}
 
     def read_multibunch(self, ref_raft='R22', ref_slot='S11', ref_amps=np.arange(1,17), ref_pix_x=1000,
-               ref_pix_y=256, npix_for_avg=30, biasfile = None, dirlist=None, outdir=None):
+               ref_pix_y=256, npix_for_avg=30, biasfile = None, dirlist=None, outdir=None, silent=False):
         
         self.properties["ref_raft"] = ref_raft
         self.properties["ref_slot"] = ref_slot
@@ -71,8 +72,9 @@ class CcobBeam:
                     self.raw_data['val'][amp].append(val)
                 else :
                     self.raw_data['val'][amp]=[val]
-            #print(os.path.basename(f[0]))
-            print(amp, self.raw_data['xarr'][-1], xh, self.raw_data['yarr'][-1], yh, val)
+            if silent==False:
+                #print(os.path.basename(f[0]))
+                print(amp, self.raw_data['xarr'][-1], xh, self.raw_data['yarr'][-1], yh, val)
                 #print(self.raw_data['val'])
 
         # Reordering the data
@@ -80,9 +82,9 @@ class CcobBeam:
         y = self.raw_data['yarr']
         val = self.raw_data['val']
         pd = self.raw_data['pd_value']
-        newx = [x for x,_,_,_ in sorted(zip(x,y,val[1],pd))]
-        newy = [y for _,y,_,_ in sorted(zip(x,y,val[1],pd))]
-        newpd = [pd for _,_,_,pd in sorted(zip(x,y,val[1],pd))]
+        newx = [x for x,_,_,_ in sorted(zip(x,y,val[ref_amps[0]],pd))]
+        newy = [y for _,y,_,_ in sorted(zip(x,y,val[ref_amps[0]],pd))]
+        newpd = [pd for _,_,_,pd in sorted(zip(x,y,val[ref_amps[0]],pd))]
         newval = {}
         for amp in ref_amps:
             newval[amp] = [val for _,_,val,_ in sorted(zip(x,y,val[amp],pd))]
@@ -97,9 +99,6 @@ class CcobBeam:
                 outf =os.path.join(outdir,'beam_raw_'+led+'_'+ref_raft+'_'+ref_slot+'_'
                                    +str(amp)+'_'+str(ref_pix_x)+'_'+str(ref_pix_y)+'.txt')
                 np.savetxt(outf, np.array([newx, newy, newval[amp], newpd]).T, delimiter='   ')
- 
-
-
  
 
     def interp_beam_BOT(self, xrange=None, yrange=None, step=1, pd_corr=False, amp=1, use_filt = False):
@@ -245,12 +244,35 @@ class CcobBeam:
     def save(self, filename):
         with open(filename, 'wb') as f:  # Overwrites any existing file.
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)                
-                     
+
+            
+def main():
+    config = sys.argv[0]
+    config = u.load_ccob_config("beam_config.yaml")
+    dirlist = []
+    for d in config['rundir']:
+        dirlist += glob.glob(config['rootdir']+d+'ccob_'+config['led_name']+'*')
+    
+    assert (len(dirlist)/config['scan_size']).is_integer, f'{len(dirlsit)} = Wrong number of scan locations'
+        
+    print(f'Scan over {len(dirlist)} locations')
+    
+    b = CcobBeam(config)
+    for i in np.arange(config['scan_size']): 
+        # that's just to allow saving the data at every line of the scan in case
+        # the job is interrupted.
+        print(f'Loading row {i}')
+        start = i*config['scan_size']
+        end = (i+1)*config['scan_size']
+        b.read_multibunch(dirlist=dirlist[start:end], outdir = config['tmpdir'], 
+                          ref_raft=config['ref_raft'], ref_slot=config['ref_slot'], silent=True)
+        b.save(os.path.join(config['tmpdir'],
+                            'beam_object_'+config['ref_raft']+'_'+config['ref_slot']+'_'+config['led_name']+'.pkl'))   
+
+    b.interp_beam_BOT(amp=config['ref_amp'], pd_corr=True)
+    im = b.make_image_BOT()
+    b.find_max_from_avg()
         
 if __name__ == '__main__':
-    config_file = '/home/combet/ccob-wb/ccob_beam_recons_config.yaml'
-    beam = b.CcobBeam(config_file=config_file)
-    beam.recons()
-    beam.make_image()
-    beam.find_max()
-    beam.save(os.path.join(beam.config['tmp_dir'],beam.config['led_name']+'_beam.pkl'))
+    main()
+ 
