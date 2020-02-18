@@ -13,7 +13,23 @@ import pdb
 from astropy.io import fits as fits
 
 class CcobBeam:
+    """Object that contains all relevant data and information for the beam model.
+    The latter is obtained by scanning a bunch of reference pixels with the CCOB-WB projector.
     
+    Attributes
+    ----------
+    config : dict
+        Configuration for the beam reconstruction, containing paths to data, led, etc.
+    properties : dict
+        Contains properties that identify how the beam object was created, e.g., from which
+        sensor, amplifier, reference pixels. Also contains location of the beam maximum.
+    beam_image : dict
+        Contains the information required to evaluate the intensity of the beam at any position.
+    raw_data : dict
+        Contains the raw data () at the location of the reference pixels throughout the scan. 
+        This records position of the CCOB and value of the control photodiode.
+    """
+
     def __init__(self, config):
         self.config = config
         self.properties = {}
@@ -155,26 +171,9 @@ class CcobBeam:
         
         self.beam_image['f_interp'] = f_interp
         
-        
-    def make_image(self, ncols=300, nrows=300):
-        
-        self.properties['ncols'] = ncols
-        self.properties['nrows'] = nrows
-        
-        extent = [min(self.beam_image['nodes']['xarr']),
-                  max(self.beam_image['nodes']['xarr']),
-                  min(self.beam_image['nodes']['yarr']), 
-                  max(self.beam_image['nodes']['yarr'])]
- 
-        xarr = np.linspace(extent[0],extent[1],ncols)
-        yarr = np.linspace(extent[2],extent[3],nrows)
-        self.beam_image['xarr'] = xarr
-        self.beam_image['yarr'] = yarr
-        self.beam_image['beam'] = self.beam_image['f_interp'](xarr, yarr)
-        return self.beam_image['beam']
- 
+
     def make_image_BOT(self, ncols=300, nrows=300):
-        
+
         self.properties['ncols'] = ncols
         self.properties['nrows'] = nrows
         
@@ -204,7 +203,6 @@ class CcobBeam:
         self.properties["max_yccob"] = self.beam_image['yarr'][yarg]
         self.properties["max_xarg"] = xarg
         self.properties["max_yarg"] = yarg
-#        return self.properties["max_xccob"], self.propperties["self.max_yccob"], xarg, yarg
  
     def find_max_from_avg(self):
         im_sm = gaussian_filter(self.beam_image['beam'], 5, mode='constant')
