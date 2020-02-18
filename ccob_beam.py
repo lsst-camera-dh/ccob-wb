@@ -1,16 +1,14 @@
 import os
-import lsst.eotest.sensor as sensorTest
-import matplotlib.pyplot as plt
-import numpy as np
 import sys
+import glob
+import numpy as np
+import pickle
+import matplotlib.pyplot as plt
 from scipy import interpolate
 from scipy.ndimage.filters import median_filter, gaussian_filter
-from numpy import unravel_index
-import ccob_utils as u
-import pickle
-import glob
-import pdb
 from astropy.io import fits
+import lsst.eotest.sensor as sensorTest
+import ccob_utils as u
 
 class CcobBeam:
     """Object that contains all relevant data and information for the beam model.
@@ -256,7 +254,7 @@ class CcobBeam:
     def find_max(self):
         """ Finds the location of the beam maximum and save it in self.properties"""
 
-        yarg,xarg = unravel_index(self.beam_image['beam'].argmax(), self.beam_image['beam'].shape)
+        yarg,xarg = np.unravel_index(self.beam_image['beam'].argmax(), self.beam_image['beam'].shape)
         self.properties["max_xccob"] = self.beam_image['xarr'][xarg]
         self.properties["max_yccob"] = self.beam_image['yarr'][yarg]
         self.properties["max_xarg"] = xarg
@@ -317,8 +315,13 @@ class CcobBeam:
 
             
 def main():
-    config = sys.argv[0]
-    config = u.load_ccob_config("beam_config.yaml")
+    """
+    First, finds the list of files relevant to a CCOB scan, given the paths available in the configuration file. 
+    Then,generates a CcobBeam object containing the raw data, the interpolated model of the beam, the 2D beam array,
+    and the location of the beam maximum.
+    """
+    configfile = sys.argv[1]
+    config = u.load_ccob_config(configfile)
     dirlist = []
     for d in config['rundir']:
         dirlist += glob.glob(config['rootdir']+d+'ccob_'+config['led_name']+'*')
