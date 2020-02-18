@@ -7,15 +7,15 @@ from scipy import interpolate
 from scipy.ndimage.filters import median_filter, gaussian_filter
 from numpy import unravel_index
 import ccob_utils as u
-import pickle 
+import pickle
 import glob
 import pdb
-from astropy.io import fits as fits
+from astropy.io import fits
 
 class CcobBeam:
     """Object that contains all relevant data and information for the beam model.
     The latter is obtained by scanning a bunch of reference pixels with the CCOB-WB projector.
-    
+
     Attributes
     ----------
     config : dict
@@ -26,7 +26,7 @@ class CcobBeam:
     beam_image : dict
         Contains the information required to evaluate the intensity of the beam at any position.
     raw_data : dict
-        Contains the raw data () at the location of the reference pixels throughout the scan. 
+        Contains the raw data () at the location of the reference pixels throughout the scan.
         This records position of the CCOB and value of the control photodiode.
     """
 
@@ -37,8 +37,8 @@ class CcobBeam:
         self.raw_data = {}
 
     def read_multibunch(self, ref_raft='R22', ref_slot='S11', ref_amps=np.arange(1,17), ref_pix_x=1000,
-               ref_pix_y=256, npix_for_avg=30, biasfile = None, dirlist=None, outdir=None, silent=False):
-  
+                        ref_pix_y=256, npix_for_avg=30, biasfile = None, dirlist=None, outdir=None, silent=False):
+
         """ Reads the data from a bunch of reference pixels after a CCOB scan and fills in self.raw_data 
         and self.properties
         
@@ -56,7 +56,7 @@ class CcobBeam:
         biasfile: string
             Path to a bias file for the bias subtraction. If None, the bias subtraction uses the default
             EOtest approach."""
-    
+
         self.properties["ref_raft"] = ref_raft
         self.properties["ref_slot"] = ref_slot
         self.properties["ref_amp"] = ref_amps
@@ -72,7 +72,7 @@ class CcobBeam:
         if 'yarr' not in self.raw_data: self.raw_data['yarr']=[]
         if 'val' not in self.raw_data: self.raw_data['val']={}
         if 'pd_value' not in self.raw_data: self.raw_data['pd_value']=[]
-                
+
         for i,d in enumerate(dirlist):
             dd = os.path.basename(d)
             xcurr = float(dd.split('_')[2])
@@ -83,20 +83,20 @@ class CcobBeam:
             if (xcurr,ycurr) in l:
                 print('here')
                 continue
-                
+
             self.raw_data['xarr'].append(xcurr)
             self.raw_data['yarr'].append(ycurr)
-            
+
             f = glob.glob(os.path.join(d, "*"+ref_raft+"*"+ref_slot+'*'))
             bb = fits.open(f[0])
             xh = np.round(bb[0].header['BOTXCAM'],1)
             yh = np.round(bb[0].header['BOTYCAM'],1)
 #            self.raw_data['xarr'].append(np.round(bb[0].header['BOTX'],1))
 #            self.raw_data['yarr'].append(np.round(bb[0].header['BOTY'],1))
-            
+
             self.raw_data['pd_value'].append(bb[0].header['CCOBADC'])
             bb.close()
-            ccd_dict = sensorTest.MaskedCCD(f[0])
+            ccd_dict = sensorTest.MaskedCCD(f[0], bias_frame=biasfile)
             for amp in ref_amps:
                 image = ccd_dict.unbiased_and_trimmed_image(amp)
                 arr = image.getArrays()
@@ -104,9 +104,9 @@ class CcobBeam:
                                                 int(ref_pix_y-npix_for_avg/2):int(ref_pix_y+npix_for_avg/2)]))
                 if amp in self.raw_data['val']:
                     self.raw_data['val'][amp].append(val)
-                else :
+                else:
                     self.raw_data['val'][amp]=[val]
-            if silent==False:
+            if not silent:
                 #print(os.path.basename(f[0]))
                 print(amp, self.raw_data['xarr'][-1], xh, self.raw_data['yarr'][-1], yh, val)
                 #print(self.raw_data['val'])
@@ -126,8 +126,8 @@ class CcobBeam:
         self.raw_data['xarr'] = newx
         self.raw_data['yarr'] = newy
         self.raw_data['val'] = newval
-        self.raw_data['pd_value'] = newpd       
-        
+        self.raw_data['pd_value'] = newpd
+
         if outdir is not None:
             for amp in ref_amps:
                 outf =os.path.join(outdir,'beam_raw_'+led+'_'+ref_raft+'_'+ref_slot+'_'
@@ -163,13 +163,13 @@ class CcobBeam:
         """
 
         self.properties['analysis_amp'] = amp
-        
+
         if not pd_corr:
             val_arr = np.array(self.raw_data['val'][amp])
         else:
             val_arr = np.array(self.raw_data['val'][amp])/np.array(self.raw_data['pd_value'])
 
-        
+
         raw_image = np.reshape(val_arr,
                                (len(np.unique(self.raw_data['yarr'])), # number of lines
                                 len(np.unique(self.raw_data['xarr'])))) # number of columns
@@ -178,7 +178,7 @@ class CcobBeam:
 
         
         if use_filt: val_arr = np.array(self.raw_data['filtered'])
-        
+
         if xrange is None:
             xrange = (min(self.raw_data['xarr']),max(self.raw_data['xarr']))
 
@@ -187,19 +187,19 @@ class CcobBeam:
 
         xmin,xmax = xrange
         ymin,ymax = yrange
-          
+
         filtx = ((np.array(self.raw_data['xarr']) >= xmin)*(np.array(self.raw_data['xarr']) <= xmax)) 
-        
+
         tmp_x = np.array(self.raw_data['xarr'])[filtx]
         good_x = np.unique(tmp_x)[::step]
         filtx2 = [e in good_x for e in tmp_x]
         tmp_x = tmp_x[filtx2]
-        
+
         tmp_y = np.array(self.raw_data['yarr'])[filtx][filtx2]
         tmp_val = val_arr[filtx][filtx2]
 
         filty = ((tmp_y >= ymin)*(tmp_y <= ymax))
-            
+
         nodes = {}
         nodes['xarr'] = tmp_x[filty][::step]
         nodes['yarr'] = tmp_y[filty][::step]
@@ -211,14 +211,14 @@ class CcobBeam:
                                         np.unique(nodes['yarr']), 
                                         raw_image.T,
                                         kind='cubic')
-        
+
         self.beam_image['f_interp'] = f_interp
-        
+
 
     def make_image_BOT(self, ncols=300, nrows=300):
-                
+
         """ Given the interpolation function, create a 2D array of the beam image.
-        
+
         Parameters
         ----------
         ncols : int
@@ -230,7 +230,7 @@ class CcobBeam:
         -------
         Beam model image as a 2D array
         """
-        
+
         self.properties['ncols'] = ncols
         self.properties['nrows'] = nrows
         
@@ -253,7 +253,6 @@ class CcobBeam:
         return self.beam_image['beam']
  
 
-    
     def find_max(self):
         """ Finds the location of the beam maximum and save it in self.properties"""
 
@@ -262,7 +261,8 @@ class CcobBeam:
         self.properties["max_yccob"] = self.beam_image['yarr'][yarg]
         self.properties["max_xarg"] = xarg
         self.properties["max_yarg"] = yarg
- 
+        
+   
     def find_max_from_avg(self):
         """ Same as find_max() but averages the position of the maximum on each row
         and colum to define the beam maximum. This is more stable that using find_max()."""
