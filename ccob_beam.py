@@ -38,7 +38,25 @@ class CcobBeam:
 
     def read_multibunch(self, ref_raft='R22', ref_slot='S11', ref_amps=np.arange(1,17), ref_pix_x=1000,
                ref_pix_y=256, npix_for_avg=30, biasfile = None, dirlist=None, outdir=None, silent=False):
+  
+        """ Reads the data from a bunch of reference pixels after a CCOB scan and fills in self.raw_data 
+        and self.properties
         
+        Parameters
+        ----------
+        ref_raft : string
+            Raft where the reference pixels are located
+        ref_slot : string
+            Slot in ref_raft where the reference pixels are located
+        ref_amps : list
+            Segments in the CCD where reference pixels are chosen
+        ref_pix_{x,y}: center of the bunch of pixels in the segment
+        npix_for_avg: int
+            npix_for_avg*npix_for_avg gives the number of pixels over which the average is performed
+        biasfile: string
+            Path to a bias file for the bias subtraction. If None, the bias subtraction uses the default
+            EOtest approach."""
+    
         self.properties["ref_raft"] = ref_raft
         self.properties["ref_slot"] = ref_slot
         self.properties["ref_amp"] = ref_amps
@@ -119,6 +137,31 @@ class CcobBeam:
 
     def interp_beam_BOT(self, xrange=None, yrange=None, step=1, pd_corr=False, amp=1, use_filt = False):
 
+        """ Given the raw data, creates the corresponding beam model from spline interpolation, using the raw data
+        as nodes.
+        
+        Parameters
+        ----------
+        xrange : tuple
+            (xmin,xmax) for the interpolation
+        yrange : tuple
+            (ymin,ymax) for the interpolation
+        step : int
+            Defines the nodes for the interpolation. If step = 1, all positions in the raw data are used
+            for the interpolation. step == 2, every second raw data is used, etc.
+        pd_corr : boolean
+            If True, interpolation is performed on the values corrected by the control photodiode value.
+        amp : int
+            Define the amp from which the data are to be considered for the interpolation
+        use_filt : boolean
+            If True, the data is first smoothed before being interpolated
+            
+        Returns
+        -------
+        The interpolation function is returned as a new attribute of the beam object, 
+        self.beam_image['f_interp'] 
+        """
+
         self.properties['analysis_amp'] = amp
         
         if not pd_corr:
@@ -173,7 +216,21 @@ class CcobBeam:
         
 
     def make_image_BOT(self, ncols=300, nrows=300):
-
+                
+        """ Given the interpolation function, create a 2D array of the beam image.
+        
+        Parameters
+        ----------
+        ncols : int
+             Number of columns of the beam image
+        nrows : int
+            Number of rows of the beam image
+        
+        Returns
+        -------
+        Beam model image as a 2D array
+        """
+        
         self.properties['ncols'] = ncols
         self.properties['nrows'] = nrows
         
@@ -198,6 +255,8 @@ class CcobBeam:
 
     
     def find_max(self):
+        """ Finds the location of the beam maximum and save it in self.properties"""
+
         yarg,xarg = unravel_index(self.beam_image['beam'].argmax(), self.beam_image['beam'].shape)
         self.properties["max_xccob"] = self.beam_image['xarr'][xarg]
         self.properties["max_yccob"] = self.beam_image['yarr'][yarg]
@@ -205,6 +264,9 @@ class CcobBeam:
         self.properties["max_yarg"] = yarg
  
     def find_max_from_avg(self):
+        """ Same as find_max() but averages the position of the maximum on each row
+        and colum to define the beam maximum. This is more stable that using find_max()."""
+
         im_sm = gaussian_filter(self.beam_image['beam'], 5, mode='constant')
 
         xarg = np.mean([np.argmax(im_sm[i]) for i in np.arange(np.shape(im_sm)[0])])
@@ -216,7 +278,10 @@ class CcobBeam:
         self.properties["max_xarg"] = int(np.round(xarg))
         self.properties["max_yarg"] = int(np.round(yarg))
                
-    def plot_BOT(self, aspect=None):        
+    def plot_BOT(self, aspect=None, outfile=None):        
+        """
+        Plots the beam and the location of its maximum is the information is available.
+        """
 #        extent = [min(self.beam_image['nodes']['yarr']),
 #                  max(self.beam_image['nodes']['yarr']),
 #                  min(self.beam_image['nodes']['xarr']), 
@@ -236,10 +301,17 @@ class CcobBeam:
 #        plt.scatter(self.beam_image['nodes']['xarr'],self.beam_image['nodes']['yarr'], marker='+', color='blue')
         if 'max_xccob' in self.properties:
             plt.plot([self.properties['max_xccob']],[self.properties['max_yccob']], marker='x', color='red', markersize='6')
-        plt.show()
+        if outfile is None:
+            plt.show()
+        else:
+            plt.savefig(outfile)
 
     
     def save(self, filename):
+        """
+        Saves the beam object as a pickle file for use at a later time.
+        """
+        
         with open(filename, 'wb') as f:  # Overwrites any existing file.
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)                
 
