@@ -1,3 +1,8 @@
+"""
+All that is needed to reconstruct the CCOB beam and generate the beam model
+used to produce the synthetic flat fields.
+"""
+
 import os
 import sys
 import glob
@@ -34,27 +39,33 @@ class CcobBeam:
         self.beam_image = {}
         self.raw_data = {}
 
-    def read_multibunch(self, ref_raft='R22', ref_slot='S11', ref_amps=np.arange(1,17), ref_pix_x=1000,
-                        ref_pix_y=256, npix_for_avg=30, biasfile = None, dirlist=None, outdir=None, silent=False):
-
+        
+    def read_multibunch(self, config, dirlist=None, silent=False):
         """ Reads the data from a bunch of reference pixels after a CCOB scan and fills in self.raw_data 
         and self.properties
         
         Parameters
         ----------
-        ref_raft : string
-            Raft where the reference pixels are located
-        ref_slot : string
-            Slot in ref_raft where the reference pixels are located
-        ref_amps : list
-            Segments in the CCD where reference pixels are chosen
-        ref_pix_{x,y}: center of the bunch of pixels in the segment
-        npix_for_avg: int
-            npix_for_avg*npix_for_avg gives the number of pixels over which the average is performed
-        biasfile: string
-            Path to a bias file for the bias subtraction. If None, the bias subtraction uses the default
-            EOtest approach."""
+        config : dict
+            Contains all required information to reconstruct the beam
+        dirlist : list
+            List of directories containing the data
+        silent : boolean
+            If True, track the progress of the beam reconstruction
+        """
 
+        ref_raft = config['ref_raft']
+        ref_slot = config['ref_slot']
+        ref_amps = config['ref_amps']
+        ref_pix_x = int(config['ref_pix_x'])
+        ref_pix_y = int(config['ref_pix_y'])
+        npix_for_avg = int(config['npix_for_avg'])
+        if 'biasfile' in config:
+            biasfile = config['biasfile']
+        else:
+            biasfile = None
+        outdir = config['tmpdir']
+        
         self.properties["ref_raft"] = ref_raft
         self.properties["ref_slot"] = ref_slot
         self.properties["ref_amp"] = ref_amps
@@ -132,6 +143,8 @@ class CcobBeam:
                                    +str(amp)+'_'+str(ref_pix_x)+'_'+str(ref_pix_y)+'.txt')
                 np.savetxt(outf, np.array([newx, newy, newval[amp], newpd]).T, delimiter='   ')
  
+        
+  
 
     def interp_beam_BOT(self, xrange=None, yrange=None, step=1, pd_corr=False, amp=1, use_filt = False):
 
@@ -337,8 +350,7 @@ def main():
         print(f'Loading row {i}')
         start = i*config['scan_size']
         end = (i+1)*config['scan_size']
-        b.read_multibunch(dirlist=dirlist[start:end], outdir = config['tmpdir'], 
-                          ref_raft=config['ref_raft'], ref_slot=config['ref_slot'], silent=True)
+        b.read_multibunch(config, dirlist=dirlist[start:end], silent=True)
         b.save(os.path.join(config['tmpdir'],
                             'beam_object_'+config['ref_raft']+'_'+config['ref_slot']+'_'+config['led_name']+'.pkl'))   
 
