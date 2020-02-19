@@ -41,6 +41,12 @@ class CcobQeData:
 
         
     def find_dir(self):
+        """
+        Finds all the CCOB positions that falls into
+        the sensor identified by self.ccdid. The corresponding list of directories (for that
+        particular self.led) and the list of positions are recorded in new attributes of the CcobQeData object.
+        """
+
         allfiles = glob.glob(os.path.join(self.path_to_data,'*'+self.led+'*'))
         filenames=[os.path.basename(f) for f in allfiles]
         fnames_comp=[f.split('_') for f in filenames]
@@ -63,12 +69,15 @@ class CcobQeData:
 
     def make_avg_mosaic_at_pos(self, pos, outdir):
         """
-        Create a mosaic image from a given sensor illuminated 
-        by the CCOB. The list of fileThe path to the data is provided in the self.config_file_data file.
-
+        Creates a mosaic image from a given sensor illuminated by the CCOB at a given position, 
+        by averaging all exposures made from this position.
+        
         Parameters
         ----------
-            led_name: choice of the CCOB LED. Either one of ['nm960','nm850','nm750,'red','blue,'uv'] 
+            pos : string
+                Position of the CCOB in the format "xpos_ypos"
+            outdir : string
+                Directory where to save the temporary FITS file created when taking the mean.
         """
 
         dirlist = [d for d in self.dir_list if pos in d]
@@ -86,7 +95,10 @@ class CcobQeData:
                           'amp_coord':amp_coord}
         
     def plot_mosaic(self, pos):
-
+        """
+        Plots the mosaic image of the (mean) exposure and identifies the position of the CCOB 
+        on the figure.
+        """
         mosaic = self.data[pos]['mosaic']
         xccob = float(pos.split('_')[0]) # CCS
         yccob = float(pos.split('_')[1]) # CCS
