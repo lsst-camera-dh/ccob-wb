@@ -53,26 +53,16 @@ class CcobBeam:
         silent : boolean
             If True, track the progress of the beam reconstruction
         """
-
-        ref_raft = config['ref_raft']
-        ref_slot = config['ref_slot']
-        ref_amps = config['ref_amps']
-        ref_pix_x = int(config['ref_pix_x'])
-        ref_pix_y = int(config['ref_pix_y'])
-        npix_for_avg = int(config['npix_for_avg'])
-        if 'biasfile' in config:
-            biasfile = config['biasfile']
-        else:
-            biasfile = None
-        outdir = config['tmpdir']
         
-        self.properties["ref_raft"] = ref_raft
-        self.properties["ref_slot"] = ref_slot
-        self.properties["ref_amp"] = ref_amps
-        self.properties["ref_pix_x"] = int(ref_pix_x)
-        self.properties["ref_pix_y"] = int(ref_pix_y)
-        self.properties["npix_for_avg"] = int(npix_for_avg)
-        
+        self.properties["ref_raft"] = ref_raft = 'R22' if ('ref_raft' not in config) else config['ref_raft']
+        self.properties["ref_slot"] = ref_slot = 'S11' if ('ref_slot' not in config) else config['ref_slot']
+        self.properties["ref_amp"] = ref_amps = [5] if ('ref_amps' not in config) else config['ref_amps']
+        self.properties["ref_pix_x"] = ref_pix_x = 1000 if ('ref_pix_x' not in config) else int(config['ref_pix_x'])
+        self.properties["ref_pix_y"] = ref_pix_y = 256 if ('ref_pix_y' not in config) else int(config['ref_pix_y'])
+        self.properties["npix_for_avg"] = npix_for_avg = 30 if ('npix_for_avg' not in config) else int(config['npix_for_avg'])
+        biasfile = None if ('biasfile' not in config) else config['biasfile']
+        outdir = './' if ('tmpdir' not in config) else config['tmpdir']
+               
         recons = {}
         led = self.config['led_name']
 
@@ -148,8 +138,8 @@ class CcobBeam:
 
     def interp_beam_BOT(self, xrange=None, yrange=None, step=1, pd_corr=False, amp=1, use_filt = False):
 
-        """ Given the raw data, creates the corresponding beam model from spline interpolation, using the raw data
-        as nodes.
+        """ Given the raw data, creates the corresponding beam model from cubic 
+        spline interpolation, using the raw data as nodes.
         
         Parameters
         ----------
@@ -357,7 +347,9 @@ def main():
     b.interp_beam_BOT(amp=config['ref_amp'], pd_corr=True)
     im = b.make_image_BOT()
     b.find_max_from_avg()
-        
+    b.save(os.path.join(config['tmpdir'],
+                        'beam_object_'+config['ref_raft']+'_'+config['ref_slot']+'_'+config['led_name']+'.pkl'))   
+      
 if __name__ == '__main__':
     main()
  
