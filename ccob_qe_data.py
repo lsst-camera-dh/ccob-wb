@@ -1,3 +1,8 @@
+"""
+Short module to perform simple operations on the CCOB data aimed 
+at the QE analysis.
+"""
+
 import os
 import glob
 import lsst.eotest.image_utils as imutils
