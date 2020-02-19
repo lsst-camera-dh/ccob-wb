@@ -38,10 +38,19 @@ def load_beam_model(path_to_beam, led_name='red', ref_amp=5, ccdid='R22_S11'):
     return b
 
 def compute_offsets(beam, lct, ccdid='R22_S11', ref_pix_x=2304, ref_pix_y=3003):
-    '''    
-    beam: beam object
-    ccdid: raft_sensor from which the beam object was computed
-    ref_pix_x, ref_pix_y: pixel in raft_sensor from which the beam was reconstructed. These are given in FP coordinates/convention - (0,0) is the bottom left corner of the sensor
+    '''   
+    Computes the offsets between the CCOB position and the maximum of the beam. The latter is the
+    reference to "align" the data and the model.
+    
+    Parameters
+    ----------
+        beam: CcobBeam object
+            This is the beam model computed from ccob_beam.py
+        ccdid: string
+            raft_sensor from which the beam object was computed
+        ref_pix_x, ref_pix_y: int
+            Pixel in raft_sensor from which the beam was reconstructed. 
+            These are given in FP coordinates/convention - (0,0) is the bottom left corner of the sensor
     '''    
 
     det = lct.getDetector(ccdid)
@@ -54,7 +63,22 @@ def compute_offsets(beam, lct, ccdid='R22_S11', ref_pix_x=2304, ref_pix_y=3003):
 
 
 def define_model_bbox(beam_model, mosaic, lct, pos, delta_x, delta_y):
+    '''   
+    Given the position of the beam in the data, computes the corresponding bounding box 
+    to apply to the beam model. 
     
+    Parameters
+    ----------
+        beam_model : CcobBeam object
+            This is the beam model computed from ccob_beam.py
+        mosaic : 2D array
+            The mosaic image of the exposure to be matched by the beam_model
+        lct : 
+        pos : the position of the CCOB given in the directory name
+        delta_x, delta_y: float
+            The offsets computed by compute_offsets.py
+    '''    
+  
     xccob = float(pos.split('_')[0]) # CCS
     yccob = float(pos.split('_')[1]) # CCS
     ccdid, x_from_ccob_pos, y_from_ccob_pos = lct.focalMmToCcdPixel(yccob, xccob) # FP coord

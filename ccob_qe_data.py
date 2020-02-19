@@ -80,7 +80,8 @@ class CcobQeData:
         Parameters
         ----------
             pos : string
-                Position of the CCOB in the format "xpos_ypos"
+                Position of the CCOB in the format "xpos_ypos", matching the name of the directories 
+                generated during acquisition
             outdir : string
                 Directory where to save the temporary FITS file created when taking the mean.
         """
