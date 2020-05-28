@@ -1,0 +1,16 @@
+{  
+   'led_name':'red',
+   'rootdir':'/gpfs/slac/lsst/fs3/g/data/jobHarness/jh_stage-test/LCA-10134_Cryostat/LCA-10134_Cryostat-0001/',
+   'rundir':['/6840D/BOT_acq/v0/48024/'],
+   #'6845D/BOT_acq/v0/48057/','6845D/BOT_acq/v0/48073/','6855D/BOT_acq/v0/48130/'],
+   'scan_size':12,
+#   'tmpdir':'/home/combet/beam_BOT/Run3/12x12',
+   'tmpdir':'/home/combet/tmp',
+   'ref_raft':'R22',
+   'ref_slot':'S11',
+   'ref_amps':[4,5],
+   'ref_pix_x':1000,
+   'ref_pix_y':256,
+   'npix_for_avg':30,
+   'ref_amp':5
+}
