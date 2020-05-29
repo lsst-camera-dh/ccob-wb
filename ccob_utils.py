@@ -14,8 +14,18 @@ import pdb
 
 def gains(eotest_results_file, is_PTC=False):
     """
-    Extract Fe55 gains from the results file of some eo testing.
+    Extract gains from the results file of some eo testing.
+    
+    Parameters:
+    -----------
+    eotest_results_file : str
+        Path to the file where EOTest gain results are stored
+    is_PTC : boolean (optional)
+        If True, PTC gains are returns. If False (default) the Fe55
+        gains are returned
+
     """
+    
     results = sensorTest.EOTestResults(eotest_results_file)
     if is_PTC:
         return {amp: gain for amp, gain in zip(results['AMP'], results['PTC_GAIN'])}
@@ -26,7 +36,17 @@ def gains(eotest_results_file, is_PTC=False):
 def load_ccob_config(config_file):
     """
     Loads ccob configuration (led, current, exp_time and position)
-    from a config yaml file
+    from a config yaml file.
+
+    Parameters:
+    -----------
+    config_file : str
+        Path to the configuration file to be loaded
+        
+    Returns:
+    -------
+    Dictionary specifying the configuration
+    
     """
     config = yaml.load(open(config_file), Loader=yaml.FullLoader)
     if 'path' not in config.keys(): config['path'] = './'
@@ -42,6 +62,15 @@ def load_ccob_config(config_file):
 def find_files(config, slot='*'):
     """
     Find all the files matching a given ccob configuration
+    
+    Parameters:
+    -----------
+    config : dict
+        Configuration dictionary
+        
+    Returns:
+    -------
+    List of files matching the configuration requirements 
     """
     f_pattern = os.path.join(os.path.join(config['path'],config['led_name']), slot+'*' + config['led_name'] + '*'
                              + config['current'] + '*' + config['exp_time'] + '*'

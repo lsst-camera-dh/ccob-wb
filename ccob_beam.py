@@ -223,7 +223,7 @@ class CcobBeam:
         Parameters
         ----------
         ncols : int
-             Number of columns of the beam image
+            Number of columns of the beam image
         nrows : int
             Number of rows of the beam image
         
@@ -266,7 +266,7 @@ class CcobBeam:
    
     def find_max_from_avg(self):
         """ Same as find_max() but averages the position of the maximum on each row
-        and colum to define the beam maximum. This is more stable that using find_max()."""
+        and column to define the beam maximum. This is more stable that using find_max()."""
 
         im_sm = gaussian_filter(self.beam_image['beam'], 5, mode='constant')
 
@@ -281,7 +281,7 @@ class CcobBeam:
                
     def plot_BOT(self, aspect=None, outfile=None):        
         """
-        Plots the beam and the location of its maximum is the information is available.
+        Plots the beam and the location of its maximum if the information is available.
         """
 #        extent = [min(self.beam_image['nodes']['yarr']),
 #                  max(self.beam_image['nodes']['yarr']),
@@ -311,6 +311,11 @@ class CcobBeam:
     def save(self, filename):
         """
         Saves the beam object as a pickle file for use at a later time.
+        
+        Parameters
+        ----------        
+        filename : str
+            Name of the file into which to save the pickled beam object.
         """
         
         with open(filename, 'wb') as f:  # Overwrites any existing file.
