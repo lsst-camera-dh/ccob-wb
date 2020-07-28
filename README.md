@@ -26,7 +26,7 @@ Stability during the scan is monitored/ensured by a control photodiode mounted o
 At the moment, the analysis is not automated and the various steps need to be run "by hand". 
 
 - The configuration files `beam_config.yaml` and `qe_config.yaml` contain information to run step 1 and 2 (see above) respectively. They mainly consist in the path to access the relevant data. Depending on how data acquisition proceeded, the data may be spread over various directories. 
-- `make_raw_beam.ipynb` [needs cleanup] in the notebook folder, examplifies how to reconstruct the beam model from the scan over the bunch of reference pixels. This produces a pickle file containing the beam object, that is then used in step 2.
-- `test_ccob_qe_analysis.ipynb` [needs cleanup], also in the notebook folder proceeds to step 2 and creates, for each CCD (and position of the CCOB), a FITS files containing the synthetic flat.
+- `make_raw_beam.py` reconstructs the beam model from the scan over the bunch of reference pixels. This produces a pickle file containing the beam object, that is then used in step 2.
+- `test_ccob_qe_analysis.ipynb` [needs cleanup], in the notebook folder proceeds to step 2 and creates, for each CCD (and position of the CCOB), a FITS files containing the synthetic flat. This still requires to be automated.
 
-The overall analysis is well-established but some evolution is still possible, depending on the Run 4 dataset. The whole procedure will then be automated. 
+The overall analysis is well-established but some evolution is still possible, depending on the Run 4 dataset.
