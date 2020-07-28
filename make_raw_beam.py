@@ -4,7 +4,6 @@ import glob
 import numpy as np
 import pickle as pkl
 import ccob_beam as beam
-import ccob_qe_analysis as qe
 import ccob_utils as u
 
  
