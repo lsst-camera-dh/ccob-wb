@@ -64,7 +64,7 @@ def compute_offsets(beam, lct, ccdid='R22_S11', ref_pix_x=2304, ref_pix_y=3003):
 
 def define_model_bbox(beam_model, mosaic, lct, pos, delta_x, delta_y):
     '''   
-    Given the position of the beam in the data, computes the corresponding bounding box 
+    Given the position of the beam in the sensor, computes the bounding box 
     to apply to the beam model. 
     
     Parameters

@@ -34,9 +34,9 @@ class CcobQeData:
             Mosaic image of the QE obtained from ccd/beam
     
     """
-    def __init__(self, ccdid, led, path_to_data, gainfile, biasfile=None):
+    def __init__(self, ccdid, led, path_to_data, gainfile, biasfile=None, is_PTC=False):
         self.ccdid = ccdid
-        self.gains = u.gains(gainfile)
+        self.gains = u.gains(gainfile, is_PTC=is_PTC)
         self.biasfile= biasfile
         self.led = led
         self.path_to_data = path_to_data
