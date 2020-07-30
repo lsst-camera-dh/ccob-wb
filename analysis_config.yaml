@@ -1,0 +1,11 @@
+{  'path_to_beam_model':'/home/combet/tmp_9rafts/60x60/',
+   'model_ccdid':'R22_S11',
+   'model_ref_amp':5,
+   'led_beam_model':'uv',
+   'path_to_bias':'/gpfs/slac/lsst/fs1/u/combet/DATA/CCOB_Bias/Run3',
+   'led_analysis':'uv',
+   'raft_list':['R02','R22'],
+   'sensor_list':['S11','S21'],
+   'outdir_figs':'/home/combet/tmp_9rafts/QE_results_w_biasfile/figs/',
+   'outdir_fits':'/gpfs/slac/lsst/fs1/u/combet/DATA/CCOB_QE_w_biasfile/fits/'
+}

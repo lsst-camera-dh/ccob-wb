@@ -2,18 +2,19 @@ import os
 import glob
 import pickle as pkl
 import scipy
+from argparse import ArgumentParser
+import yaml
+import pickle
+import numpy as np
+import matplotlib.pyplot as plt
 import lsst.eotest.image_utils as imutils
 import lsst.eotest.sensor as sensorTest
-import numpy as np
+from lsst.obs.lsst.cameraTransforms import LsstCameraTransforms
+from lsst.obs.lsst import LsstCamMapper as camMapper
 import ccob_utils as u
 import ccob_beam as b
 import ccob_qe_data as qe_data
-import pickle
-import matplotlib.pyplot as plt
-import pdb 
-from lsst.obs.lsst.cameraTransforms import LsstCameraTransforms
-from lsst.obs.lsst import LsstCamMapper as camMapper
-
+import pdb
 
 def load_beam_model(path_to_beam, led_name='red', ref_amp=5, ccdid='R22_S11'):
     """
@@ -186,11 +187,21 @@ def make_fits(QE_map, amp_coord, outfile, template_file):
     u.writeFits_from_dict(amp_dict_w_overscan, outfile, template_file)#,bitpix=-32)
     
     
-if __name__ == '__main__':
+def main(configfile):
+        
+    config = yaml.load(open(configfile,'rb'), Loader=yaml.FullLoader)
+    print(config)
 
-    camera = camMapper._makeCamera()
-    lct = LsstCameraTransforms(camera)
-
+    path_to_beam = config['path_to_beam_model']
+    model_ccdid = config['model_ccdid']
+    model_ref_amp = config['model_ref_amp']
+    path_to_bias = config['path_to_bias']
+    led_beam = config['led_beam_model']
+    led = config['led_analysis']
+    raft_list = config['raft_list']
+    sensor_list = config['sensor_list']
+    outdir_figs  = config['outdir_figs']
+    outdir_fits = config['outdir_fits']
     
     basedir1 = '/gpfs/slac/lsst/fs3/g/data/jobHarness/jh_stage-test/LCA-10134_Cryostat/LCA-10134_Cryostat-0001/'
     basedir2 = '/gpfs/slac/lsst/fs3/g/data/jobHarness/jh_stage/LCA-10134_Cryostat/LCA-10134_Cryostat-0001/'
@@ -205,24 +216,26 @@ if __name__ == '__main__':
                     'R22': basedir2 + '11974/BOT_acq/v0/93868/',
                     'R30': basedir1 + '6843D/BOT_acq/v0/48047/'
                    }
-    path_to_beam = '/home/combet/tmp_9rafts/60x60/'
-    outdir = '/home/combet/tmp_9rafts/QE_results/'
 
-    led = 'red'
     
-    model_ccdid = 'R22_S11'
-    beam_model = load_beam_model(path_to_beam, led_name=led, ref_amp=5, ccdid=model_ccdid)
-    delta_x, delta_y = compute_offsets(beam_model, lct, ccdid=model_ccdid, ref_pix_x=2304, ref_pixy=3003)
+    beam_model = load_beam_model(path_to_beam, led_name=led_beam, ref_amp=model_ref_amp, ccdid=model_ccdid)
+
+    camera = camMapper._makeCamera()
+    lct = LsstCameraTransforms(camera)
+
+    delta_x, delta_y = compute_offsets(beam_model, lct, ccdid=model_ccdid, ref_pix_x=2304, ref_pix_y=3003)
     
-    raft_list = ['R22', 'R30', 'R01']
-    sensor_list = ['S00','S01','S02','S10','S11','S12','S20','S21','S22']
     ccdid_list = sorted([raft+'_'+sensor for sensor in sensor_list for raft in raft_list])
+
     
     for data_ccdid in ccdid_list:
+        
+        print(data_ccdid)
         gainfile = '/gpfs/slac/lsst/fs3/g/data/jobHarness/jh_stage-test/LCA-10134_Cryostat/LCA-10134_Cryostat-0001/6801D/fe55_analysis_BOT/v0/47706/'+data_ccdid+'_6801D_eotest_results.fits'
-            
+         
+        biasfile = os.path.join(path_to_bias,f'{data_ccdid}_sbias.fits')
         raft = data_ccdid.split('_')[0]
-        data = qe_data.CcobQeData(data_ccdid, led, path_to_data[raft], gainfile, biasfile=None)
+        data = qe_data.CcobQeData(data_ccdid, led, path_to_data[raft], gainfile, biasfile=biasfile)
         data.find_dir()
 
         for pos in data.pos_list:
@@ -237,10 +250,27 @@ if __name__ == '__main__':
             model_eotestDef = np.flip(tmp.T, axis=1) # beam model followinf EOTest convention
             model_normalised = model_eotestDef/np.max(model_eotestDef.flatten())
             qe = mosaic/model_normalised
+            qe_norm = qe / np.median(qe.flatten())
       
-            outfile = outdir+'fits/QE_'+data_ccdid+'_'+led+'_'+pos+'.fits'
-            make_fits(qe, outfile, data.data[pos]['amp_coord'], data.template_file)
+            outfile = os.path.join(outdir_fits,f'QE_{data_ccdid}_{led}_{pos}.fits')
+            amp_coord = data.data[pos]['amp_coord']
+            make_fits(qe,amp_coord, outfile, data.template_file)
+            
+            figfile = os.path.join(outdir_figs, f'QE_{data_ccdid}_{led}_{pos}.png')
+            plot_results(qe, model_eotestDef, mosaic, data_ccdid, data.lct, pos, delta_x, delta_y,figfile)
+            figfile = os.path.join(outdir_figs,f'QE_{data_ccdid}_{led}_{pos}_norm.png')
+            plot_results(qe_norm, model_normalised, mosaic, data_ccdid, data.lct, pos, delta_x, delta_y,figfile)
 
-            figfile = outdir+'fits/QE_'+data_ccdid+'_'+led+'_'+pos+'.png'
-            plot_results(qe, model, mosaic, data_ccdid, data.lct, pos, figfile)
+
+if __name__ == '__main__':
+    
+    description = "Runs the CCOB QE analysis"
+    prog = "ccob_qe_analysis_BOT.py"
+    usage = f"{prog} config" 
+    
+    parser = ArgumentParser(prog=prog, usage=usage, description=description)
+    parser.add_argument('config', help='Configuration (yaml) file')
+
+    args = parser.parse_args()
+    main(args.config)
 
