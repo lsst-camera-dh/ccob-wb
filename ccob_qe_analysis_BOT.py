@@ -192,6 +192,7 @@ def main(configfile):
     config = yaml.load(open(configfile,'rb'), Loader=yaml.FullLoader)
     print(config)
 
+    plt.ioff() # turn off interactive mode to avoid problem with X forwarding
     path_to_beam = config['path_to_beam_model']
     model_ccdid = config['model_ccdid']
     model_ref_amp = config['model_ref_amp']
