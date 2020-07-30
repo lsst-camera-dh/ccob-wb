@@ -87,14 +87,14 @@ def build_mean_bias_frame(config, slot, file_patterm='_mean_bias_image.fits'):
     outfile = slot + file_pattern
     imutils.fits_mean_file(bias_frames, os.path.join(config['tmp_dir'],outfile))
 
-def make_superbias_frame(config, bias_files, raft, slot, file_pattern='_sbias_image.fits'):
+def make_superbias_frame(raft, slot, bias_files, outdir, file_pattern='_sbias_image.fits'):
     """
     Make and save a super biasframes. Only need to do it once for each slot.
     make_image will look into config['tmp_dir'] to find them.
     """
     amp_geom = sensorTest.makeAmplifierGeometry(bias_files[0])
     outfile = raft+'_'+slot + file_pattern
-    imutils.superbias_file(bias_files, amp_geom.serial_overscan, os.path.join(config['tmp_dir'],outfile)) 
+    imutils.superbias_file(bias_files, amp_geom.serial_overscan, os.path.join(outdir,outfile)) 
 
 def define_ccd_pos(ccd_pos_dict, raft_name, slot_names, xpos, ypos):
     """
