@@ -1,8 +1,8 @@
 # ccob-wb
 
-This repository contains the analysis software for the Camera Calibration Optical Bench - Wide Beam projector (CCOB-WB). The CCOB-WB aims at producing a (relative) composite flat field of the LSST focal plane (without the optics) at a precision of a few per mil. 
+This repository contains the analysis software for the Camera Calibration Optical Bench - Wide Beam projector (CCOB-WB). The CCOB-WB aims at producing a (relative) composite flat field of the LSSTCam focal plane (without the optics) at a precision of a few per mil. 
 
-The CCOB-WB consists in 6 LED, emitting light at  wavelength characteristic of the 6 LSST filters, mounted on a integrating sphere. The outgoing beam, 3-4 cm wide, can illuminate any part fo the focal plane. The measurement is performed in two steps:
+The CCOB-WB consists in 6 LED, emitting light at  wavelength characteristic of the 6 filters, mounted on a integrating sphere. The outgoing beam, 3-4 cm wide, can illuminate any part fo the focal plane. The measurement is performed in two steps:
 
 - First, the beam must be reconstructed at the per mil level. This is done by choosing a bunch of reference pixels and scanning those pixels with the beam over a fine grid. This allows to define a beam model. 
 - Second, each CCD of the focal plane is illuminated by the beam, in each wavelength. Several exposures are taken to reach the required S/N level. The corresponding average image divided by the beam model computed at step 1, will be provide a synthetic flat field of that CCD. 
