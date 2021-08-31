@@ -29,4 +29,4 @@ At the moment, the analysis is not automated and the various steps need to be ru
 - `ccob_beam.py` reconstructs the beam model from the scan over the bunch of reference pixels. This produces a pickle file containing the beam object, that is then used in step 2.
 - `ccob_qe_analysis_BOT.py` proceeds to step 2 and creates, for each CCD (and position of the CCOB), a FITS files containing the synthetic flat. 
 
-The overall analysis is well-established but some evolution is still possible, depending on the Run 4 dataset.
+Some evolution of the software is likely, depending on the (final) Run 5 dataset.
