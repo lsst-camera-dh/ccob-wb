@@ -12,20 +12,43 @@ import astropy.io.fits as fits
 from astropy.utils.exceptions import AstropyWarning, AstropyUserWarning
 import pdb
 
-def gains(eotest_results_file):
+def gains(eotest_results_file, is_PTC=False):
     """
-    Extract Fe55 gains from the results file of some eo testing.
+    Extract gains from the results file of some eo testing.
+    
+    Parameters:
+    -----------
+    eotest_results_file : str
+        Path to the file where EOTest gain results are stored
+    is_PTC : boolean (optional)
+        If True, PTC gains are returns. If False (default) the Fe55
+        gains are returned
+
     """
+    
     results = sensorTest.EOTestResults(eotest_results_file)
-    return {amp: gain for amp, gain in zip(results['AMP'], results['GAIN'])}
+    if is_PTC:
+        return {amp: gain for amp, gain in zip(results['AMP'], results['PTC_GAIN'])}
+    else:
+        return {amp: gain for amp, gain in zip(results['AMP'], results['GAIN'])}
 
 
 def load_ccob_config(config_file):
     """
     Loads ccob configuration (led, current, exp_time and position)
-    from a config yaml file
+    from a config yaml file.
+
+    Parameters:
+    -----------
+    config_file : str
+        Path to the configuration file to be loaded
+        
+    Returns:
+    -------
+    Dictionary specifying the configuration
+    
     """
-    config = yaml.load(open(config_file))
+    config = yaml.load(open(config_file), Loader=yaml.FullLoader)
     if 'path' not in config.keys(): config['path'] = './'
     if 'led_name' not in config.keys(): config['led_name'] = '*'
     if 'current' not in config.keys(): config['current'] = '*'
@@ -39,6 +62,15 @@ def load_ccob_config(config_file):
 def find_files(config, slot='*'):
     """
     Find all the files matching a given ccob configuration
+    
+    Parameters:
+    -----------
+    config : dict
+        Configuration dictionary
+        
+    Returns:
+    -------
+    List of files matching the configuration requirements 
     """
     f_pattern = os.path.join(os.path.join(config['path'],config['led_name']), slot+'*' + config['led_name'] + '*'
                              + config['current'] + '*' + config['exp_time'] + '*'
@@ -46,22 +78,23 @@ def find_files(config, slot='*'):
     print(f_pattern)
     return glob.glob(f_pattern)
 
-def build_mean_bias_frame(config, slot, mean_frame_pattern='_mean_bias_image.fits'):
+def build_mean_bias_frame(config, slot, file_patterm='_mean_bias_image.fits'):
     """
     Builds and save mean bias frames. Only need to do it once for each slot.
     make_image will look into config['tmp_dir'] to find them.
     """
     bias_frames = glob.glob(os.path.join(config['path'], slot+'_Bias*'))
-    mean_bias_file = slot + mean_frame_pattern
-    imutils.fits_mean_file(bias_frames, os.path.join(config['tmp_dir'],mean_bias_file))
+    outfile = slot + file_pattern
+    imutils.fits_mean_file(bias_frames, os.path.join(config['tmp_dir'],outfile))
 
-def make_superbias_frame(bias_files, slot, outfile):
+def make_superbias_frame(raft, slot, bias_files, outdir, file_pattern='_sbias_image.fits'):
     """
     Make and save a super biasframes. Only need to do it once for each slot.
     make_image will look into config['tmp_dir'] to find them.
     """
     amp_geom = sensorTest.makeAmplifierGeometry(bias_files[0])
-    imutils.superbias_file(bias_files, amp_geom.serial_overscan, outfile) 
+    outfile = raft+'_'+slot + file_pattern
+    imutils.superbias_file(bias_files, amp_geom.serial_overscan, os.path.join(outdir,outfile)) 
 
 def define_ccd_pos(ccd_pos_dict, raft_name, slot_names, xpos, ypos):
     """
@@ -280,9 +313,7 @@ def writeFits_from_dict(amp_dict, outfile, template_file, bitpix=32):
         for amp in all_amps:
             output[amp].header.update(template[amp].header)
             imutils.set_bitpix(output[amp], bitpix)
-            print(np.median(output[amp].data.ravel()))
+#            print(np.median(output[amp].data.ravel()))
         for i in (-3, -2, -1):
             output.append(template[i])
         imutils.fitsWriteto(output, outfile, overwrite=True, checksum=True)
-
-
