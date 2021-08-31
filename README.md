@@ -18,7 +18,7 @@ Stability during the scan is monitored/ensured by a control photodiode mounted o
 - [matplotlib](https://matplotlib.org/)
 - [numpy](http://www.numpy.org/)
 - [scipy](http://www.scipy.org/)
-- [dm-stack](https://pipelines.lsst.io/) (LSST analysis pipeline)
+- [dm-stack](https://pipelines.lsst.io/) (Rubin analysis pipeline)
 
 
 ## Running the analysis
