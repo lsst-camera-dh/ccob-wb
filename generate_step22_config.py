@@ -71,8 +71,8 @@ with open('tmp.txt', 'r') as istr:
         print('[CCOB]', file=ostr)
         print('BCOUNT = 0', file=ostr)
         print('IMCOUNT = 1', file=ostr)
-        print('XOFFSET = 0.0', file=ostr)
-        print('YOFFSET = 0.0', file=ostr)
+        print('XOFFSET = '+str(xoffset), file=ostr)
+        print('YOFFSET = '+str(yoffset), file=ostr)
         print('LOCATIONS = '+raft+'/'+reb+'\n', file=ostr)
         led_number = 0
         print('expose = '+ str(led_config[led_number][0])+' '
