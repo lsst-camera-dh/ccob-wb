@@ -54,8 +54,7 @@ yall = np.broadcast_to(yarr, (N_y, N_x)).flatten()
 np.savetxt('tmp.txt', list(zip(xall, yall)),fmt='%.3f', delimiter=('  '))
 
 # Print into configuration file
-# config_filename = 'ccob_'+str(N_x)+'x'+str(N_y)+'_'+raft+'_'+sensor+'_all.cfg'
-config_filename = 'test.cfg'
+config_filename = 'ccob_'+str(N_x)+'x'+str(N_y)+'_'+raft+'_'+sensor+'_all.cfg'
 
 with open('tmp.txt', 'r') as istr:
     with open(config_filename, 'w') as ostr:

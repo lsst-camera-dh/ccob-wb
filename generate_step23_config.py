@@ -43,9 +43,8 @@ for i,raft in enumerate(raft_list):
             xall[i][l] = xcenter
             yall[i][l] = ycenter
 
-#config_filename = 'ccob_qe_all_byREB.cfg'
-config_filename = 'test23.cfg'
-
+# Print into configuration file
+config_filename = 'ccob_qe_all_byREB.cfg'
 print(config_filename)
 
 with open(config_filename, 'w') as ostr:
