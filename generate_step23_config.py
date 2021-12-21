@@ -2,6 +2,12 @@ import numpy as np
 from lsst.obs.lsst.cameraTransforms import LsstCameraTransforms
 from lsst.obs.lsst import LsstCamMapper as camMapper
 
+####################################################################################
+# This script generates the configuration file for step22 of the CCOB_WB acquisition
+# The output file name is on line 53.
+# The offsets can be adjusted below
+####################################################################################
+
 # Offsets
 xoffset = 5.0 # mm
 yoffset = -7.0 # mm
