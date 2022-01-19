@@ -80,7 +80,7 @@ class CcobBeam:
 #            print(i)
 
             if (xcurr,ycurr) in l:
-                print('here')
+#                print('here')
                 continue
 
             self.raw_data['xarr'].append(xcurr)
@@ -136,7 +136,8 @@ class CcobBeam:
         
   
 
-    def interp_beam_BOT(self, xrange=None, yrange=None, step=1, pd_corr=False, amp=1, use_filt = False):
+    def interp_beam_BOT(self, xrange=None, yrange=None, step=1, pd_corr=False, amp=1, use_filt = False, 
+                        kind='spline', spline_kind='cubic'):
 
         """ Given the raw data, creates the corresponding beam model from cubic 
         spline interpolation, using the raw data as nodes.
@@ -205,14 +206,41 @@ class CcobBeam:
         nodes['xarr'] = tmp_x[filty][::step]
         nodes['yarr'] = tmp_y[filty][::step]
         nodes['val'] = tmp_val[filty][::step]
-
+        
         self.beam_image['nodes'] = nodes
-        raw_image = np.reshape(nodes['val'],(len(np.unique(nodes['yarr'])),len(np.unique(nodes['xarr']))))
-        f_interp = interpolate.interp2d(np.unique(nodes['xarr']), 
-                                        np.unique(nodes['yarr']), 
-                                        raw_image.T,
-                                        kind='cubic')
+#        raw_image = np.reshape(nodes['val'],(len(np.unique(nodes['yarr'])),len(np.unique(nodes['xarr']))))
+        raw_image = np.reshape(nodes['val'],(len(np.unique(nodes['yarr'])),len(np.unique(nodes['xarr']))), order='F')
 
+        self.beam_image['interp_kind'] = kind
+
+        if kind is 'spline':
+#             f_interp = interpolate.interp2d(np.unique(nodes['xarr']), 
+#                                             np.unique(nodes['yarr']), 
+#                                             raw_image.T,
+#                                             kind=spline_kind)
+
+            f_interp = interpolate.interp2d(np.unique(nodes['xarr']), 
+                                            np.unique(nodes['yarr']), 
+                                            raw_image,
+                                            kind=spline_kind)
+ 
+#             f_interp = interpolate.interp2d(nodes['xarr'],
+#                                             nodes['yarr'],
+#                                             nodes['val'])
+
+        elif kind is 'rectbivariate':
+            f_interp = interpolate.RectBivariateSpline(np.unique(nodes['yarr']), 
+                                                       np.unique(nodes['xarr']), 
+                                                       raw_image, s=5)
+    
+        elif kind is 'rbf':
+            f_interp = interpolate.Rbf(nodes['xarr'], 
+                                       nodes['yarr'], 
+                                       nodes['val'])
+        else:
+            print('Interpolation method not implemented')
+            sys.exit()
+        
         self.beam_image['f_interp'] = f_interp
 
 
@@ -250,8 +278,19 @@ class CcobBeam:
         yarr = np.linspace(extent[2],extent[3],nrows)
         self.beam_image['xarr'] = xarr 
         self.beam_image['yarr'] = yarr
-        self.beam_image['beam'] = self.beam_image['f_interp'](xarr, yarr)
+        if self.beam_image['interp_kind'] is 'spline':
+            self.beam_image['beam'] = self.beam_image['f_interp'](xarr, yarr)
+ 
+        elif self.beam_image['interp_kind'] is 'rbf':
+            self.beam_image['beam'] = self.beam_image['f_interp'](np.repeat(xarr,ncols),
+                                                                  np.tile(yarr,nrows)).reshape((nrows,ncols), order='F')
+
+        elif self.beam_image['interp_kind'] is 'rectbivariate':
+            self.beam_image['beam'] = self.beam_image['f_interp'](xarr, yarr)
+
         return self.beam_image['beam']
+ 
+
  
 
     def find_max(self):
@@ -299,7 +338,8 @@ class CcobBeam:
 
         plt.imshow(im/np.max(im.flatten()), extent=extent, aspect=aspect, origin='lower', vmin=0.7, vmax=1)
         plt.colorbar()
-#        plt.scatter(self.beam_image['nodes']['xarr'],self.beam_image['nodes']['yarr'], marker='+', color='blue')
+        plt.scatter(self.beam_image['nodes']['xarr'],self.beam_image['nodes']['yarr'], 
+                    marker='.', color='blue', s=2)
         if 'max_xccob' in self.properties:
             plt.plot([self.properties['max_xccob']],[self.properties['max_yccob']], marker='x', color='red', markersize='6')
         if outfile is None:
@@ -334,11 +374,23 @@ def main():
     for d in config['rundir']:
         dirlist += glob.glob(config['rootdir']+d+'ccob_'+config['led_name']+'*')
     
+    outfile = os.path.join(config['tmpdir'],
+                            'beam_object_'+config['ref_raft']+'_'+config['ref_slot']+'_'+config['led_name']+'.pkl')
+    
     assert (len(dirlist)/config['scan_size']).is_integer, f'{len(dirlsit)} = Wrong number of scan locations'
         
     print(f'Scan over {len(dirlist)} locations')
     
+    
     b = CcobBeam(config)
+    print(outfile)
+    if os.path.isfile(outfile):
+        b = pickle.load(open(outfile,'rb'))
+        if b.config == config:
+            print("Configuration matches - continuing from existing partial file")
+        else:
+            sys.exit("Configuration does not match that of existing file - Exit")
+            
     for i in np.arange(config['scan_size']): 
         # that's just to allow saving the data at every line of the scan in case
         # the job is interrupted.
@@ -346,14 +398,12 @@ def main():
         start = i*config['scan_size']
         end = (i+1)*config['scan_size']
         b.read_multibunch(config, dirlist=dirlist[start:end], silent=True)
-        b.save(os.path.join(config['tmpdir'],
-                            'beam_object_'+config['ref_raft']+'_'+config['ref_slot']+'_'+config['led_name']+'.pkl'))   
+        b.save(outfile)   
 
-    b.interp_beam_BOT(amp=config['ref_amp'], pd_corr=True)
+    b.interp_beam_BOT(amp=config['ref_amps'][0], pd_corr=True)
     im = b.make_image_BOT()
     b.find_max_from_avg()
-    b.save(os.path.join(config['tmpdir'],
-                        'beam_object_'+config['ref_raft']+'_'+config['ref_slot']+'_'+config['led_name']+'.pkl'))   
+    b.save(outfile)  
       
 if __name__ == '__main__':
     main()

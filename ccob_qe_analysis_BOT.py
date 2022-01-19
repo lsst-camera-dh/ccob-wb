@@ -32,8 +32,9 @@ def load_beam_model(path_to_beam, led_name='red', ref_amp=5, ccdid='R22_S11'):
 
     fl = glob.glob(os.path.join(path_to_beam,'*'+ccdid+'_'+led_name+'*'))
     beam_file = fl[0]
+    print(beam_file)
     b = pkl.load(open(beam_file,'rb'))
-    b.interp_beam_BOT(amp=ref_amp, pd_corr=True)
+    b.interp_beam_BOT(amp=ref_amp, pd_corr=True, use_filt = False)
     b.make_image_BOT()
     b.find_max_from_avg()
     return b
