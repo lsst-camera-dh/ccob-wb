@@ -213,7 +213,7 @@ class CcobBeam:
 
         self.beam_image['interp_kind'] = kind
 
-        if kind is 'spline':
+        if kind == 'spline':
 #             f_interp = interpolate.interp2d(np.unique(nodes['xarr']), 
 #                                             np.unique(nodes['yarr']), 
 #                                             raw_image.T,
@@ -228,12 +228,12 @@ class CcobBeam:
 #                                             nodes['yarr'],
 #                                             nodes['val'])
 
-        elif kind is 'rectbivariate':
+        elif kind == 'rectbivariate':
             f_interp = interpolate.RectBivariateSpline(np.unique(nodes['yarr']), 
                                                        np.unique(nodes['xarr']), 
                                                        raw_image, s=5)
     
-        elif kind is 'rbf':
+        elif kind == 'rbf':
             f_interp = interpolate.Rbf(nodes['xarr'], 
                                        nodes['yarr'], 
                                        nodes['val'])
@@ -278,14 +278,14 @@ class CcobBeam:
         yarr = np.linspace(extent[2],extent[3],nrows)
         self.beam_image['xarr'] = xarr 
         self.beam_image['yarr'] = yarr
-        if self.beam_image['interp_kind'] is 'spline':
+        if self.beam_image['interp_kind'] == 'spline':
             self.beam_image['beam'] = self.beam_image['f_interp'](xarr, yarr)
  
-        elif self.beam_image['interp_kind'] is 'rbf':
+        elif self.beam_image['interp_kind'] == 'rbf':
             self.beam_image['beam'] = self.beam_image['f_interp'](np.repeat(xarr,ncols),
                                                                   np.tile(yarr,nrows)).reshape((nrows,ncols), order='F')
 
-        elif self.beam_image['interp_kind'] is 'rectbivariate':
+        elif self.beam_image['interp_kind'] == 'rectbivariate':
             self.beam_image['beam'] = self.beam_image['f_interp'](xarr, yarr)
 
         return self.beam_image['beam']
